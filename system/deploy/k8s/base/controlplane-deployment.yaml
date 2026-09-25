@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controlplane
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: controlplane
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: controlplane
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 100
+        fsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: controlplane
+          image: controlplane-media:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: controlplane-env
+            - secretRef:
+                name: app-secrets
+          env:
+            # DATABASE_URL is assembled from the POSTGRES_* secret via K8s
+            # container env expansion (settings.py reads DATABASE_URL verbatim,
+            # exactly as compose passes it).
+            - name: DATABASE_URL
+              value: "postgresql+psycopg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: workflows
+              mountPath: /opt/media/workflows
+              readOnly: true
+            - name: templates-schema
+              mountPath: /opt/media/config/templates.schema.json
+              subPath: templates.schema.json
+              readOnly: true
+            - name: gallery
+              mountPath: /data/galleries
+            - name: uploads
+              mountPath: /data/uploads
+            - name: comfy-output
+              mountPath: /data/comfy-output
+            - name: comfy-input
+              mountPath: /data/comfy-input
+      volumes:
+        - name: workflows
+          configMap:
+            name: comfyui-workflows
+        - name: templates-schema
+          configMap:
+            name: templates-schema
+        - name: gallery
+          persistentVolumeClaim:
+            claimName: gallery-storage
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: uploads-storage
+        - name: comfy-output
+          persistentVolumeClaim:
+            claimName: comfyui-output
+        - name: comfy-input
+          persistentVolumeClaim:
+            claimName: comfy-input

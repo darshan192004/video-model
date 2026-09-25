@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Cluster-agnostic control-plane stack. Everything environment-specific lands
+# in an overlay (overlays/k3s dev, overlays/production GPU) — never here.
+labels:
+  - pairs:
+      app: comfyui-media
+    includeSelectors: false
+resources:
+  - comfyui-deployment.yaml
+  - comfyui-service.yaml
+  - controlplane-deployment.yaml
+  - controlplane-service.yaml
+  - worker-deployment.yaml
+  - postgres-statefulset.yaml
+  - postgres-service.yaml
+  - nginx-deployment.yaml
+  - nginx-service.yaml
+  - pvc.yaml
+  - configmaps.yaml
+# ConfigMaps are COMMITTED GENERATED manifests (scripts/k8s-sync-configmaps.sh)
+# carrying the repo's authoritative nginx conf / workflows / template schema /
+# control-plane env contract — regenerate after editing any of those upstream
+# files. Kustomize's loader forbids `files:` sources outside this root, which is
+# why the ConfigMaps are emitted here rather than via configMapGenerator.

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nginx
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+# Base has no external surface; the k3s dev overlay opens NodePort 30443.

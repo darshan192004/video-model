@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: comfyui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: comfyui
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 100
+        fsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: comfyui
+          image: comfyui-media:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8188
+              protocol: TCP
+          env:
+            - name: COMFY_LISTEN
+              value: "0.0.0.0"
+            - name: COMFY_PORT
+              value: "8188"
+            - name: COMFY_MODE
+              value: "gpu"          # k3s dev overlay forces cpu; gpu overlay re-asserts
+            - name: COMFY_VRAM
+              value: ""
+            - name: COMFY_EXTRA_ARGS
+              value: ""
+          readinessProbe:
+            httpGet:
+              path: /system_stats
+              port: 8188
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8188
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          volumeMounts:
+            - name: models
+              mountPath: /opt/ComfyUI/models
+            - name: output
+              mountPath: /opt/ComfyUI/output
+            - name: input
+              mountPath: /opt/ComfyUI/input
+            - name: user
+              mountPath: /opt/ComfyUI/user
+      volumes:
+        # base uses the models-scratch PVC as an empty placeholder; overlays
+        # replace the whole volume (dev: hostPath to link-models.sh tree).
+        - name: models
+          persistentVolumeClaim:
+            claimName: models-scratch
+        - name: output
+          persistentVolumeClaim:
+            claimName: comfyui-output
+        - name: input
+          persistentVolumeClaim:
+            claimName: comfy-input
+        - name: user
+          emptyDir: {}
