@@ -1,3 +1,10 @@
+# GPU compose override for the RTX 3090 box (Phase 4). Rendered and validated
+# on the dev box with no GPU present; the physical CUDA handoff stays in
+# docs/ops/gpu-wire-up.md.
+#
+# Compose merge semantics (later files win per key): these fixed values replace
+# base.yml's interpolated ones, so the box always boots CUDA with the VRAM
+# budget the manifest assumes (24 GB singleton).
 services:
   comfyui:
     deploy:
@@ -5,10 +12,15 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              count: 1
               capabilities: [gpu]
     environment:
       COMFY_MODE: gpu
-    # GPU host paths for the 3090 box, set via .env:
-    #   MODELS_PATH=/srv/media-weights
-    #   (output/input/user handled by named volumes)
+      COMFY_LISTEN: "0.0.0.0"
+      COMFY_PORT: "8188"
+      COMFY_VRAM: ${COMFY_VRAM:-lowvram}
+      COMFY_EXTRA_ARGS: ${COMFY_EXTRA_ARGS:---cpu-vae}
+    shm_size: ${COMFY_SHM:-8g}
+    restart: ${RESTART:-unless-stopped}
+    # No host `ports` for 8188 here — ComfyUI stays internal (control-plane is
+    # its only client); nginx exposes only 443.
