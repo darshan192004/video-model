@@ -1,0 +1,13 @@
+# Point the control-plane at the REAL org Dex. Patch-merge into the base
+# controlplane-env ConfigMap (only these keys change; the provider contract of
+# the remaining literals is unchanged). ${DOMAIN} must be the same host the
+# Ingress serves.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: controlplane-env
+data:
+  DOMAIN: media.example.com
+  DEX_OIDC_ISSUER: https://dex.example.com
+  OIDC_CLIENT_ID: media-controlplane
+  OIDC_REDIRECT_URI: https://media.example.com/api/auth/callback

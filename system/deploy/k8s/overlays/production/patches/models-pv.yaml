@@ -1,0 +1,14 @@
+# Real model volume: production comfyui mounts the operator-provisioned PV/CSI
+# behind the `models` claim (pvc-storageclass.yaml renames the base placeholder,
+# k3s overlay instead switches this volume to hostPath).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui
+spec:
+  template:
+    spec:
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: models

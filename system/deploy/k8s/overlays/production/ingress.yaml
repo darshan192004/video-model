@@ -1,0 +1,24 @@
+# Single external surface: the nginx ingress terminates TLS (comfyui-tls secret)
+# and proxies the SPA/control-plane. Requires an ingress controller with the
+# class below installed by the operator.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: media-ingress
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - media.example.com
+      secretName: comfyui-tls
+  rules:
+    - host: media.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80

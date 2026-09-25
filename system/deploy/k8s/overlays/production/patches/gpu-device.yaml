@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui
+spec:
+  template:
+    spec:
+      nodeSelector:
+        comfy-node/gpu: "true"
+      tolerations:
+        - key: comfy-node/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: comfyui
+          env:
+            - name: COMFY_MODE
+              value: gpu
+            - name: COMFY_VRAM
+              value: lowvram
+            - name: COMFY_EXTRA_ARGS
+              value: --cpu-vae
+          resources:
+            limits:
+              nvidia.com/gpu: "1"

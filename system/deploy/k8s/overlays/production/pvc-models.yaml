@@ -1,0 +1,11 @@
+# Real model volume claim for production comfyui: backed by the operator's
+# PV/CSI provisioner (see README); mounted via patches/models-pv.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: models
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Ti

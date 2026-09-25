@@ -1,0 +1,37 @@
+# Operator-visible StorageClass contract. Defaults assume a `fast` SSD class for
+# app data; adjust to your cluster's CSI class names before applying.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: comfyui-output
+spec:
+  storageClassName: fast
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: comfy-input
+spec:
+  storageClassName: fast
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gallery-storage
+spec:
+  storageClassName: fast
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads-storage
+spec:
+  storageClassName: fast
+---
+# Drop the base placeholder PVC; the real `models` claim (PV/CSI-backed) is a
+# first-class overlay resource (pvc-models.yaml), mounted via models-pv.yaml.
+$patch: delete
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: models-scratch
