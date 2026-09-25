@@ -10,8 +10,10 @@ services:
       COMFY_PORT: ${COMFY_PORT:-8188}
       COMFY_MODE: ${COMFY_MODE:-gpu}
       COMFY_VRAM: ${COMFY_VRAM:-}
+    # models mount points at the link-models.sh symlink forest (system/models/)
+    # when LINKED_MODELS is set; MODELS_PATH keeps the direct tree fallback.
     volumes:
-      - ${MODELS_PATH:-/srv/media-weights}:/opt/ComfyUI/models
+      - ${LINKED_MODELS:-${MODELS_PATH:-/srv/media-weights}}:${LINKED_DEST:-/opt/ComfyUI/models}
       - comfy-output:/opt/ComfyUI/output
       - comfy-input:/opt/ComfyUI/input
       - comfy-user:/opt/ComfyUI/user
@@ -50,6 +52,7 @@ services:
       COMFY_INPUT_DIR: ${COMFY_INPUT_DIR:-/data/comfy-input}
       WORKFLOWS_DIR: ${WORKFLOWS_DIR:-/opt/media/workflows}
       TEMPLATE_SCHEMA: ${TEMPLATE_SCHEMA:-/opt/media/config/templates.schema.json}
+      TEMPLATE_FIXTURES_DIR: ${TEMPLATE_FIXTURES_DIR:-}
     volumes:
       - media-galleries:${GALLERY_ROOT:-/data/galleries}
       - media-uploads:${UPLOAD_ROOT:-/data/uploads}
@@ -87,6 +90,7 @@ services:
       UPLOAD_ROOT: ${UPLOAD_ROOT:-/data/uploads}
       WORKFLOWS_DIR: ${WORKFLOWS_DIR:-/opt/media/workflows}
       TEMPLATE_SCHEMA: ${TEMPLATE_SCHEMA:-/opt/media/config/templates.schema.json}
+      TEMPLATE_FIXTURES_DIR: ${TEMPLATE_FIXTURES_DIR:-}
       DEX_OIDC_ISSUER: ${DEX_OIDC_ISSUER:-http://host.docker.internal:5556/dex}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-media-controlplane}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
