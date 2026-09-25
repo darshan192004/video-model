@@ -3,6 +3,8 @@
 system/.env
 system/deploy/secrets/
 system/deploy/certs/
+system/deploy/k8s/overlays/k3s/secrets.env
+system/deploy/k8s/overlays/k3s/certs/
 *.htpasswd
 *.crt
 *.key

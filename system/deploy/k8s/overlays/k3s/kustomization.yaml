@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Dev/test overlay (the project's PRIMARY test vehicle). Everything here is
+# environment-specific: the media-system namespace, NodePort surfaces (nginx
+# 30443, Dex 30556), CPU mode, an in-cluster test Dex, hostPath models and
+# gitignored secrets. For a prod shape see ../production.
+namespace: media-system
+
+resources:
+  - ../../base
+  - dex-deployment.yaml
+  - dex-service.yaml
+  - config-dex.yaml
+
+patches:
+  - path: patches/cpu-args.yaml
+  - path: patches/hostPath-models.yaml
+  - path: patches/nodeport.yaml
+  - path: patches/controlplane-env-cm.yaml
+
+secretGenerator:
+  - name: comfyui-tls
+    files:
+      - tls.crt=certs/fullchain.pem
+      - tls.key=certs/privkey.pem
+  - name: app-secrets
+    envs:
+      - secrets.env

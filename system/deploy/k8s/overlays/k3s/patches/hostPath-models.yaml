@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui
+spec:
+  template:
+    spec:
+      volumes:
+        - name: models
+          persistentVolumeClaim: null
+          hostPath:
+            # link-models.sh symlink forest on the dev box (Phase 3). This is
+            # intentionally dev-specific; production uses a CSI/PV instead.
+            path: /home/darshan.parmar/Desktop/video-model/system/models

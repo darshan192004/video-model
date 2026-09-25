@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: controlplane-env
+data:
+  # Dev overlay overrides: the in-cluster test Dex URL (both legs) and the
+  # NodePort callback registered in config-dex.yaml. DOMAIN drives nginx
+  # envsubst server_name; NO_RESOLVE=1 suites target 127.0.0.1:30443.
+  DOMAIN: 127.0.0.1
+  DEX_OIDC_ISSUER: http://${NODE_IP}:30556/dex
+  OIDC_REDIRECT_URI: https://127.0.0.1:30443/api/auth/callback
