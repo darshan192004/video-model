@@ -21,6 +21,9 @@ services:
     # on the private network.
 
   controlplane:
+    # Liveness: GET /api/healthz always answers 200 with {"status":"ok","db":"up|down"};
+    # it is deliberately not a readiness gate, so a transient Postgres outage
+    # never takes the container out of rotation.
     image: controlplane-media:0.1.0
     restart: unless-stopped
     env_file:
@@ -30,7 +33,7 @@ services:
       CONTROLPLANE_LISTEN: ${CONTROLPLANE_LISTEN:-0.0.0.0}
       CONTROLPLANE_PORT: ${CONTROLPLANE_PORT:-8000}
       COMFY_INTERNAL_URL: ${COMFY_INTERNAL_URL:-http://comfyui:8188}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://media:media@postgres:5432/media}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://media:media@postgres:5432/media}
       GALLERY_ROOT: ${GALLERY_ROOT:-/data/galleries}
       UPLOAD_ROOT: ${UPLOAD_ROOT:-/data/uploads}
       DEX_OIDC_ISSUER: ${DEX_OIDC_ISSUER:-http://host.docker.internal:5556/dex}
@@ -38,10 +41,19 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-https://${DOMAIN:-media.local}/api/auth/callback}
       ADMIN_GROUPS: ${ADMIN_GROUPS:-media-admins}
+      DEFAULT_ADMIN_GROUPS: ${DEFAULT_ADMIN_GROUPS:-media-admins}
       SESSION_SECRET: ${SESSION_SECRET:-}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-1}
+      OIDC_MOCK: ${OIDC_MOCK:-0}
+      SPA_STATIC: ${SPA_STATIC:-/opt/media/spa}
     volumes:
       - media-galleries:${GALLERY_ROOT:-/data/galleries}
       - media-uploads:${UPLOAD_ROOT:-/data/uploads}
+    # Postgres must be accepting connections before schema_up() runs at boot;
+    # the app also retries DATABASE_URL for up to 60s.
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - comfy-internal
 
