@@ -42,9 +42,9 @@ WORKDIR /home/comfy
 COPY requirements-extra.txt /opt/requirements-extra.txt
 RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install \
-         torch==2.4.1 \
-         torchvision==0.19.1 \
-         torchaudio==2.4.1 \
+         torch==2.5.1 \
+         torchvision==0.20.1 \
+         torchaudio==2.5.1 \
          --index-url https://download.pytorch.org/whl/cu124
 
 # --- ComfyUI checkout (pinned) -------------------------------------------

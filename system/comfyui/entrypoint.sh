@@ -33,11 +33,14 @@ if [[ -n "$EXTRA" ]]; then
   ARGS+=($EXTRA)
 fi
 
-echo "[entrypoint] launching: python main.py ${ARGS[*]}" >&2
+# Resolve an interpreter: the CUDA runtime image only ships `python3`.
+PY="$(command -v python || command -v python3)"
+
+echo "[entrypoint] launching: $PY main.py ${ARGS[*]}" >&2
 
 if [[ "${COMFY_DRYRUN:-0}" == "1" ]]; then
   echo "DRYRUN: ${ARGS[*]}"
   exit 0
 fi
 
-exec python main.py "${ARGS[@]}"
+exec "$PY" main.py "${ARGS[@]}"
