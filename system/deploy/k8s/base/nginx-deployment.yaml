@@ -13,6 +13,9 @@ spec:
         app.kubernetes.io/name: nginx
     spec:
       securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
         runAsNonRoot: true
         runAsUser: 101           # nginx unprivileged uid in the alpine image
         runAsGroup: 101

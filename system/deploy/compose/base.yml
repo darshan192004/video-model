@@ -28,6 +28,8 @@ services:
     # never takes the container out of rotation.
     image: controlplane-media:0.1.0
     restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     env_file:
       - path: ../../.env
         required: false
@@ -78,6 +80,8 @@ services:
     # SKIP LOCKED`, drives ComfyUI, then copies output into the owner's gallery.
     image: controlplane-media:0.1.0
     restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     env_file:
       - path: ../../.env
         required: false
@@ -116,7 +120,7 @@ services:
       - comfy-internal
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-media}
@@ -133,8 +137,10 @@ services:
       - comfy-internal
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
     restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     ports:
       - "${HTTPS_PORT:-443}:443"
     environment:

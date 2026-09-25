@@ -13,6 +13,9 @@ spec:
         app.kubernetes.io/name: worker
     spec:
       securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 100

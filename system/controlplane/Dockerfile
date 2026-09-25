@@ -2,7 +2,7 @@
 # Control-plane image: Nuxt SPA (SSG) baked into a FastAPI runtime.
 
 # --- Stage 1: build the SPA static output ---
-FROM node:20-alpine AS spa-build
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS spa-build
 WORKDIR /app/spa
 COPY spa/package.json spa/package-lock.json ./
 RUN npm ci
@@ -12,7 +12,7 @@ RUN npm run build
 RUN test -f dist/index.html
 
 # --- Stage 2: Python runtime ---
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 AS runtime
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 RUN useradd --create-home --uid 1000 --gid 100 control
 COPY controlplane/requirements.txt /opt/requirements.txt

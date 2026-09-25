@@ -1,8 +1,10 @@
 # Syntax: docker/dockerfile:1.7
 # Pinned, non-root ComfyUI server image used by both compose and k8s.
 
-# Python 3.12 CUDA base. Keep this tag pinned for reproducibility.
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS base
+# Python 3.12 CUDA base. Tag + digest pinned for reproducibility (digest of
+# nvidia/cuda:12.4.1-runtime-ubuntu22.04 as resolved via docker.io, matching the
+# unpinned default resolution).
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04@sha256:517da2300c184c9999ec203c2665244bdebd3578d12fcc7065e83667932643d9 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1 \
