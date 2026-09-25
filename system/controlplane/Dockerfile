@@ -5,7 +5,7 @@
 # --- Stage 1: build the SPA static output (placeholder in P0) ---
 FROM node:20-alpine AS spa-build
 WORKDIR /app/spa
-COPY spa/ ./          # real Nuxt source arrives in P1.5
+COPY spa/ ./
 RUN mkdir -p /out && cp -r public/. /out/ 2>/dev/null || cp public/index.html /out/
 
 # --- Stage 2: Python runtime ---
