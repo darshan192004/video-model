@@ -1,3 +1,12 @@
-# Control-plane API. Add authlib, uvicorn, etc. in Phase 1.5.
+# Control-plane runtime dependencies. Unpinned on purpose: the frozen snapshot
+# produced by the native install is committed as requirements.lock.txt.
 fastapi
 uvicorn[standard]
+authlib
+sqlalchemy[asyncio]
+psycopg[binary]
+pydantic-settings
+httpx
+itsdangerous
+# Unit tests run the app in-process against sqlite instead of postgres.
+aiosqlite

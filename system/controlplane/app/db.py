@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -14,10 +13,9 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from .models import Base
+from .settings import get_settings
 
 log = logging.getLogger("media.db")
-
-DEFAULT_DATABASE_URL = "postgresql+psycopg://media:media@postgres:5432/media"
 
 _engine: AsyncEngine | None = None
 _sessionmaker: async_sessionmaker[AsyncSession] | None = None
@@ -33,7 +31,7 @@ def normalize_database_url(url: str) -> str:
 
 
 def database_url() -> str:
-    return normalize_database_url(os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL))
+    return normalize_database_url(get_settings().database_url)
 
 
 def get_engine() -> AsyncEngine:
