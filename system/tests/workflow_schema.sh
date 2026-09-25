@@ -14,7 +14,12 @@
 #   - when COMFY_OBJECT_INFO is set+reachable: every class_type exists there
 #
 # Usage: bash tests/workflow_schema.sh    (from system/)
-#   COMFY_OBJECT_INFO=http://127.0.0.1:8999/object_info   optional class check
+#   COMFY_FETCH=<cmd>           optional class check: command printing ComfyUI
+#                               /object_info JSON on stdout (k3s in-cluster:
+#                               COMFY_FETCH='kubectl -n media-system run oi --rm
+#                               -i --restart=Never --image=curlimages/curl --
+#                               curl -s http://comfyui:8188/object_info')
+#   COMFY_OBJECT_INFO=<url>     optional class check: one-shot curl target
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -85,14 +90,20 @@ else
   exit 1
 fi
 
-# Optional class membership (final pass / pinned backend only).
-if [[ -n "${COMFY_OBJECT_INFO:-}" ]]; then
+# Optional class membership (final pass / pinned backend only). Prefer an
+# explicit COMFY_FETCH command (in-cluster pod exec); fall back to a one-shot
+# curl against COMFY_OBJECT_INFO (compose network / native mock).
+classes=""
+if [[ -n "${COMFY_FETCH:-}" ]]; then
+  classes="$(${COMFY_FETCH} 2>/dev/null || true)"
+elif [[ -n "${COMFY_OBJECT_INFO:-}" ]]; then
   classes="$({ command -v curl >/dev/null 2>&1 && curl -fsS --max-time 5 "${COMFY_OBJECT_INFO}"; } 2>/dev/null || true)"
-  if [[ -z "${classes}" ]]; then
-    echo "workflow_schema: SKIP class check (${COMFY_OBJECT_INFO} unreachable)"
-    exit 0
-  fi
-  missing="$(COMFY_CLASSES="${classes}" python3 - "${ROOT}" <<'PY'
+fi
+if [[ -z "${classes}" ]]; then
+  echo "workflow_schema: SKIP class check (COMFY_FETCH/COMFY_OBJECT_INFO unset/unreachable; runs in the final pass)"
+  exit 0
+fi
+missing="$(COMFY_CLASSES="${classes}" python3 - "${ROOT}" <<'PY'
 import json, os, re, sys
 from pathlib import Path
 classes = set(json.loads(os.environ["COMFY_CLASSES"]))
@@ -105,13 +116,10 @@ for tpl in schema["templates"].values():
 print("\n".join(sorted(node_classes - classes)))
 PY
 )"
-  if [[ -n "${missing}" ]]; then
-    echo "workflow_schema: FAIL class membership in /object_info:"
-    printf '%s\n' "${missing}" >&2
-    exit 1
-  fi
-  echo "workflow_schema: class membership in /object_info OK"
-else
-  echo "workflow_schema: SKIP class check (COMFY_OBJECT_INFO unset; runs in the final pass)"
+if [[ -n "${missing}" ]]; then
+  echo "workflow_schema: FAIL class membership in /object_info:"
+  printf '%s\n' "${missing}" >&2
+  exit 1
 fi
+echo "workflow_schema: class membership in /object_info OK"
 exit 0
