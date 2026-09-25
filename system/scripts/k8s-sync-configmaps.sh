@@ -23,6 +23,7 @@ out = Path(os.environ["OUT"]) if os.environ.get("WRITE") == "1" else None
 dump = sys.stdout if out is None else out.open("w")
 
 nginx_conf = (sys / "nginx" / "conf.d" / "default.conf").read_text()
+nginx_main = (sys / "nginx" / "nginx.conf").read_text()
 workflow_files = ["qwen-t2i.json", "qwen-edit.json", "wan-t2v-a14b.json", "wan-i2v-a14b.json", "smoke.json"]
 templates_schema = (sys / "config" / "templates.schema.json").read_text()
 literals = [
@@ -40,7 +41,8 @@ literals = [
 ]
 
 docs = [
-    {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "nginx-conf"}, "data": {"default.conf": nginx_conf}},
+    {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "nginx-conf"},
+     "data": {"default.conf": nginx_conf, "nginx.conf": nginx_main}},
     {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "comfyui-workflows"},
      "data": {wf: (sys / "workflows" / wf).read_text() for wf in workflow_files}},
     {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "templates-schema"},

@@ -13,10 +13,43 @@ spec:
       labels:
         app.kubernetes.io/name: postgres
     spec:
+      securityContext:
+        # Official image supports unprivileged UID 999 (entrypoint skips the
+        # root-only chown/chmod path). NOTE: kubelet fsGroup is NOT applied to
+        # k3s local-path (hostPath) volumes, so a root initContainer fixes the
+        # data dir ownership once (main container stays hardened).
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: chown-data
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            # One-time ownership fix: local-path/hostPath ignores kubelet
+            # fsGroup, so this container temp-root-chowns while the main
+            # container stays as non-root UID 999.
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN]
+          command: ["chown", "-R", "999:999", "/var/lib/postgresql/data"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
           image: postgres:16-alpine
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - containerPort: 5432
               protocol: TCP

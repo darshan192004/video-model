@@ -25,19 +25,19 @@ spec:
         - name: dex
           image: ghcr.io/dexidp/dex:v2.39.1
           imagePullPolicy: IfNotPresent
-          command: ["serve", "/etc/dex/config.yaml"]
+          args: ["dex", "serve", "/etc/dex/config.yaml"]
           ports:
             - containerPort: 5556
               protocol: TCP
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /dex/healthz
               port: 5556
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /dex/healthz
               port: 5556
             initialDelaySeconds: 15
             periodSeconds: 30

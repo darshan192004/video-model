@@ -13,9 +13,6 @@ spec:
         app.kubernetes.io/name: controlplane
     spec:
       securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: [ALL]
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 100
@@ -26,6 +23,10 @@ spec:
         - name: controlplane
           image: controlplane-media:0.1.0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - containerPort: 8000
               protocol: TCP
