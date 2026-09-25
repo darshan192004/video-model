@@ -1,0 +1,14 @@
+services:
+  comfyui:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      COMFY_MODE: gpu
+    # GPU host paths for the 3090 box, set via .env:
+    #   MODELS_PATH=/srv/media-weights
+    #   (output/input/user handled by named volumes)

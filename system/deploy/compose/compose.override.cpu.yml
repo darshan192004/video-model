@@ -1,0 +1,6 @@
+services:
+  comfyui:
+    environment:
+      COMFY_MODE: cpu
+    # No GPU reservations. Dev box smoke only; models may be absent — the
+    # smoke workflow (Phase 3) does not load real weights.

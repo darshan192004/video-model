@@ -1,0 +1,95 @@
+services:
+  comfyui:
+    image: comfyui-media:0.1.0
+    restart: unless-stopped
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      COMFY_LISTEN: ${COMFY_LISTEN:-0.0.0.0}
+      COMFY_PORT: ${COMFY_PORT:-8188}
+      COMFY_MODE: ${COMFY_MODE:-gpu}
+      COMFY_VRAM: ${COMFY_VRAM:-}
+    volumes:
+      - ${MODELS_PATH:-/srv/media-weights}:/opt/ComfyUI/models
+      - comfy-output:/opt/ComfyUI/output
+      - comfy-input:/opt/ComfyUI/input
+      - comfy-user:/opt/ComfyUI/user
+    networks:
+      - comfy-internal
+    # NO ports published for comfyui: it is only reachable via the control-plane
+    # on the private network.
+
+  controlplane:
+    image: controlplane-media:0.1.0
+    restart: unless-stopped
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      CONTROLPLANE_LISTEN: ${CONTROLPLANE_LISTEN:-0.0.0.0}
+      CONTROLPLANE_PORT: ${CONTROLPLANE_PORT:-8000}
+      COMFY_INTERNAL_URL: ${COMFY_INTERNAL_URL:-http://comfyui:8188}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://media:media@postgres:5432/media}
+      GALLERY_ROOT: ${GALLERY_ROOT:-/data/galleries}
+      UPLOAD_ROOT: ${UPLOAD_ROOT:-/data/uploads}
+      DEX_OIDC_ISSUER: ${DEX_OIDC_ISSUER:-http://host.docker.internal:5556/dex}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-media-controlplane}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-https://${DOMAIN:-media.local}/api/auth/callback}
+      ADMIN_GROUPS: ${ADMIN_GROUPS:-media-admins}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+    volumes:
+      - media-galleries:${GALLERY_ROOT:-/data/galleries}
+      - media-uploads:${UPLOAD_ROOT:-/data/uploads}
+    networks:
+      - comfy-internal
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-media}
+      POSTGRES_USER: ${POSTGRES_USER:-media}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-media}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-media} -d ${POSTGRES_DB:-media}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - comfy-internal
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      DOMAIN: ${DOMAIN:-media.local}
+    volumes:
+      - ./../../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./../../nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./../../deploy/certs:/etc/nginx/certs:ro
+    command: >
+      sh -c "envsubst '$$DOMAIN' < /etc/nginx/conf.d/default.conf > /tmp/default.conf
+      && cp /tmp/default.conf /etc/nginx/conf.d/default.conf
+      && exec nginx -g 'daemon off;'"
+    depends_on:
+      - controlplane
+    networks:
+      - comfy-internal
+
+volumes:
+  comfy-output:
+  comfy-input:
+  comfy-user:
+  media-galleries:
+  media-uploads:
+  pg-data:
+
+networks:
+  comfy-internal:
+    driver: bridge
