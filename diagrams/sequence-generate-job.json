@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "ComfyUI Generation \u2014 Job Roundtrip",
+    "output": "diagrams/sequence-generate-job.html",
+    "viewBox": [
+      1080,
+      578
+    ],
+    "column_fit": "spread",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "views": [
+      {
+        "id": "submit",
+        "label": "Submit",
+        "focus": [
+          "browser",
+          "api",
+          "queue"
+        ],
+        "note": "The browser gets a job id before any model weight is touched."
+      },
+      {
+        "id": "render",
+        "label": "GPU render",
+        "focus": [
+          "queue",
+          "runner",
+          "gpu",
+          "store"
+        ],
+        "note": "Load, denoise and VAE decode happen once, in order, on the GPU."
+      },
+      {
+        "id": "observe",
+        "label": "Observe output",
+        "focus": [
+          "runner",
+          "browser",
+          "api",
+          "store"
+        ],
+        "note": "Progress streams over WebSocket; the final media is fetched by id."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Browser",
+      "sublabel": "App Mode UI"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "ComfyUI API",
+      "sublabel": ":8188"
+    },
+    {
+      "id": "queue",
+      "type": "messagebus",
+      "label": "Job Queue",
+      "sublabel": "built-in serial"
+    },
+    {
+      "id": "runner",
+      "type": "backend",
+      "label": "Runner",
+      "sublabel": "next job"
+    },
+    {
+      "id": "gpu",
+      "type": "cloud",
+      "label": "RTX 3090",
+      "sublabel": "Wan \u00b7 Qwen"
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Output Store",
+      "sublabel": "MP4 \u00b7 PNG"
+    }
+  ],
+  "segments": [
+    {
+      "from": 158,
+      "to": 198,
+      "label": "Submit"
+    },
+    {
+      "from": 248,
+      "to": 314,
+      "label": "Render on GPU"
+    },
+    {
+      "from": 372,
+      "to": 494,
+      "label": "Save + observe"
+    }
+  ],
+  "messages": [
+    {
+      "from": "browser",
+      "to": "api",
+      "y": 164,
+      "label": "POST /prompt",
+      "variant": "emphasis"
+    },
+    {
+      "from": "api",
+      "to": "queue",
+      "y": 186,
+      "label": "enqueue job",
+      "variant": "emphasis"
+    },
+    {
+      "from": "api",
+      "to": "browser",
+      "y": 208,
+      "label": "200 job id",
+      "variant": "return"
+    },
+    {
+      "from": "queue",
+      "to": "runner",
+      "y": 230,
+      "label": "deliver next",
+      "variant": "emphasis"
+    },
+    {
+      "from": "runner",
+      "to": "gpu",
+      "y": 252,
+      "label": "load weights",
+      "variant": "default"
+    },
+    {
+      "from": "gpu",
+      "to": "runner",
+      "y": 280,
+      "label": "VRAM ready",
+      "variant": "return"
+    },
+    {
+      "from": "runner",
+      "to": "gpu",
+      "y": 308,
+      "label": "denoise \u2192 VAE decode",
+      "variant": "emphasis"
+    },
+    {
+      "from": "gpu",
+      "to": "runner",
+      "y": 336,
+      "label": "media frames",
+      "variant": "return"
+    },
+    {
+      "from": "runner",
+      "to": "store",
+      "y": 364,
+      "label": "save final media",
+      "variant": "emphasis"
+    },
+    {
+      "from": "runner",
+      "to": "browser",
+      "y": 386,
+      "label": "progress via WebSocket",
+      "variant": "dashed"
+    },
+    {
+      "from": "browser",
+      "to": "api",
+      "y": 414,
+      "label": "GET /history/:id",
+      "variant": "default"
+    },
+    {
+      "from": "api",
+      "to": "store",
+      "y": 436,
+      "label": "read output",
+      "variant": "default"
+    },
+    {
+      "from": "store",
+      "to": "api",
+      "y": 464,
+      "label": "output metadata",
+      "variant": "return"
+    },
+    {
+      "from": "api",
+      "to": "browser",
+      "y": 486,
+      "label": "200 download url",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "api",
+      "from": 188,
+      "to": 290,
+      "type": "backend"
+    },
+    {
+      "participant": "queue",
+      "from": 232,
+      "to": 334,
+      "type": "messagebus"
+    },
+    {
+      "participant": "runner",
+      "from": 320,
+      "to": 545,
+      "type": "backend"
+    },
+    {
+      "participant": "gpu",
+      "from": 362,
+      "to": 502,
+      "type": "cloud"
+    },
+    {
+      "participant": "store",
+      "from": 530,
+      "to": 746,
+      "type": "database"
+    },
+    {
+      "participant": "api",
+      "from": 644,
+      "to": 790,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Fast Acceptance",
+      "items": [
+        "The request is acknowledged before render starts",
+        "The queue owns the work, not the long-lived connection",
+        "No model weight loads until dequeue"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Serial Render",
+      "items": [
+        "One GPU serves every job in arrival order",
+        "Load, denoise and decode happen once per job",
+        "Completed media is written to the local store"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Two Observation Paths",
+      "items": [
+        "WebSocket streams live progress to the browser",
+        "The final file is fetched by history id",
+        "Both paths converge on the saved output"
+      ]
+    }
+  ]
+}

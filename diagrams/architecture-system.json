@@ -1,0 +1,322 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ComfyUI Media Generation \u2014 System Map",
+    "output": "diagrams/architecture-system.html",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "locale": "en",
+    "views": [
+      {
+        "id": "primary-path",
+        "label": "Primary request path",
+        "focus": [
+          "users",
+          "proxy",
+          "comfy",
+          "queue",
+          "gpu",
+          "out"
+        ],
+        "note": "Follow one generation request from browser to saved output."
+      },
+      {
+        "id": "model-weights",
+        "label": "Model acquisition",
+        "focus": [
+          "hf",
+          "qwen",
+          "wan",
+          "gpu"
+        ],
+        "note": "Weights are downloaded once, then executed on the GPU."
+      },
+      {
+        "id": "compute-boundary",
+        "label": "Restricted compute",
+        "focus": [
+          "gpu",
+          "qwen",
+          "wan"
+        ],
+        "note": "The GPU and both model families live inside one isolated boundary."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Users",
+      "sublabel": "browser / device",
+      "pos": [
+        40,
+        252
+      ],
+      "size": [
+        120,
+        60
+      ]
+    },
+    {
+      "id": "proxy",
+      "type": "security",
+      "label": "Caddy",
+      "sublabel": "HTTPS reverse proxy",
+      "pos": [
+        230,
+        252
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "tag": ":443"
+    },
+    {
+      "id": "comfy",
+      "type": "backend",
+      "label": "ComfyUI",
+      "sublabel": "node engine :8188",
+      "pos": [
+        430,
+        252
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "queue",
+      "type": "messagebus",
+      "label": "Job Queue",
+      "sublabel": "built-in serial queue",
+      "pos": [
+        620,
+        252
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "gpu",
+      "type": "cloud",
+      "label": "RTX 3090",
+      "sublabel": "24GB VRAM \u00b7 CUDA",
+      "pos": [
+        810,
+        252
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "tag": "single GPU"
+    },
+    {
+      "id": "wan",
+      "type": "backend",
+      "label": "Wan 2.2",
+      "sublabel": "T2V \u00b7 I2V \u00b7 TI2V-5B",
+      "pos": [
+        720,
+        368
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "Apache-2.0"
+    },
+    {
+      "id": "qwen",
+      "type": "backend",
+      "label": "Qwen-Image-2.1",
+      "sublabel": "text-to-image \u00b7 edit",
+      "pos": [
+        900,
+        368
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "brand": "qwen",
+      "tag": "research license"
+    },
+    {
+      "id": "out",
+      "type": "database",
+      "label": "Output Store",
+      "sublabel": "MP4 \u00b7 PNG \u00b7 RGBA",
+      "pos": [
+        1000,
+        252
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "hf",
+      "type": "external",
+      "label": "Hugging Face",
+      "sublabel": "model weights",
+      "pos": [
+        810,
+        462
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "brand": "hugging-face"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Self-hosted \u00b7 server room",
+      "wraps": [
+        "proxy",
+        "comfy",
+        "queue",
+        "gpu",
+        "wan",
+        "qwen",
+        "out"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Restricted compute",
+      "wraps": [
+        "gpu",
+        "wan",
+        "qwen"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "users-proxy",
+      "from": "users",
+      "to": "proxy",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "proxy-comfy",
+      "from": "proxy",
+      "to": "comfy",
+      "label": "forward",
+      "variant": "default"
+    },
+    {
+      "id": "comfy-queue",
+      "from": "comfy",
+      "to": "queue",
+      "label": "enqueue job",
+      "variant": "default"
+    },
+    {
+      "id": "queue-gpu",
+      "from": "queue",
+      "to": "gpu",
+      "label": "dequeue \u2192 render",
+      "variant": "emphasis",
+      "labelDy": 54
+    },
+    {
+      "id": "gpu-wan",
+      "from": "gpu",
+      "to": "wan",
+      "label": "load + infer",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "gpu-qwen",
+      "from": "gpu",
+      "to": "qwen",
+      "label": "load + infer",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "gpu-out",
+      "from": "gpu",
+      "to": "out",
+      "label": "save output",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "hf-wan",
+      "from": "hf",
+      "to": "wan",
+      "label": "download weights",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        0.15,
+        1
+      ],
+      "labelDx": 14,
+      "labelDy": 0
+    },
+    {
+      "id": "hf-qwen",
+      "from": "hf",
+      "to": "qwen",
+      "label": "download weights",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        0.15,
+        1
+      ],
+      "labelDx": 14,
+      "labelDy": 0
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Serving Many Users",
+      "items": [
+        "One ComfyUI instance behind an HTTPS reverse proxy",
+        "All jobs serialize through the built-in queue \u2014 no collisions on a single GPU",
+        "ComfyUI's own web UI and App Mode are the access surface"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Models on the 3090",
+      "items": [
+        "Qwen-Image-2.1 covers text-to-image and image editing in one model",
+        "Wan 2.2 covers text-to-video and image-to-video (A14B and fast TI2V-5B)",
+        "14B video weights run FP8-scaled so both experts fit in 24GB VRAM"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Boundaries & Licensing",
+      "items": [
+        "GPU and models are isolated in a restricted compute boundary",
+        "Weights are fetched once from Hugging Face, then run locally",
+        "Wan 2.2 is Apache-2.0; Qwen-Image-2.1 is research-licensed \u2014 check before commercial use"
+      ]
+    }
+  ]
+}

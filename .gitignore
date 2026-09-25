@@ -1,0 +1,31 @@
+# env & secrets
+.env
+system/.env
+system/deploy/secrets/
+system/deploy/certs/
+*.htpasswd
+*.crt
+*.key
+*.csr
+
+# model wiring (symlinks into user infra)
+system/models/
+system/link/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# tooling
+.opencode/
+.playwright-mcp/
+system/.doctor-cache/
+*.log
+
+# editor/os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

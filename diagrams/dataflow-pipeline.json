@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "ComfyUI Media Generation — Pipeline",
+    "output": "diagrams/dataflow-pipeline.html",
+    "viewBox": [1068, 540],
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "views": [
+      { "id": "text-path", "label": "Text-to-X", "focus": ["request", "enc-text", "sampler", "vae", "media"], "note": "Text-only tasks go through the text encoder straight to sampling." },
+      { "id": "image-path", "label": "Image-to-X", "focus": ["request", "enc-vision", "vae-input", "sampler"], "note": "I2V and Edit add vision tokens plus a VAE-encoded spatial latent." },
+      { "id": "decode", "label": "Decode to media", "focus": ["sampler", "vae", "media"], "note": "The denoised latent is decoded once to pixels and framed as video or image." }
+    ]
+  },
+  "stages": [
+    { "label": "Input" },
+    { "label": "Encode" },
+    { "label": "Sample" },
+    { "label": "Decode" },
+    { "label": "Output" }
+  ],
+  "nodes": [
+    { "id": "request", "type": "frontend", "label": "User Request", "sublabel": "prompt + ref image", "tag": "task-chosen", "stage": 0, "row": 0, "width": 140 },
+    { "id": "enc-text", "type": "backend", "label": "Text Encoder", "sublabel": "UMT5-LLM · Qwen3-LLM", "tag": "tokens", "stage": 1, "row": 0, "width": 150 },
+    { "id": "enc-vision", "type": "backend", "label": "Vision Encoder", "sublabel": "SigLIP-Vision · Qwen3-VL", "tag": "optional", "stage": 1, "row": 1, "width": 150 },
+    { "id": "vae-input", "type": "database", "label": "VAE Encode", "sublabel": "reference → spatial latent", "tag": "image-only", "stage": 2, "row": 1, "width": 160 },
+    { "id": "sampler", "type": "cloud", "label": "Diffusion Sampler", "sublabel": "Wan A14B experts · Qwen DiT", "tag": "on GPU", "stage": 3, "row": 0, "width": 165 },
+    { "id": "vae", "type": "backend", "label": "VAE Decode", "sublabel": "latent → pixel frames", "stage": 4, "row": 0, "width": 145 },
+    { "id": "media", "type": "database", "label": "Media Files", "sublabel": "MP4 · PNG in output store", "stage": 4, "row": 2, "width": 165 }
+  ],
+  "flows": [
+    { "id": "req-text", "from": "request", "to": "enc-text", "label": "prompt text", "variant": "emphasis", "route": "straight", "fromSide": "right", "toSide": "left" },
+    { "id": "req-vision", "from": "request", "to": "enc-vision", "label": "reference image", "variant": "dashed", "classification": "image-path", "fromSide": "bottom", "toSide": "left", "via": [[100, 271], [238, 271]], "labelAt": [150, 256] },
+    { "id": "req-vae", "from": "request", "to": "vae-input", "label": "reference pixels", "variant": "dashed", "classification": "image-path", "fromSide": "right", "toSide": "bottom", "via": [[200, 157], [200, 328], [530, 328]], "labelAt": [356, 314] },
+    { "id": "text-sample", "from": "enc-text", "to": "sampler", "label": "text conditioning", "variant": "emphasis", "route": "straight", "fromSide": "right", "toSide": "left" },
+    { "id": "vision-sample", "from": "enc-vision", "to": "sampler", "label": "visual tokens", "variant": "dashed", "classification": "image-path", "fromSide": "top", "toSide": "bottom", "via": [[315, 214], [745, 214]], "labelAt": [520, 208] },
+    { "id": "vae-sample", "from": "vae-input", "to": "sampler", "label": "spatial latent", "variant": "dashed", "classification": "image-path", "fromSide": "bottom", "toSide": "bottom", "via": [[530, 328], [745, 328]], "labelAt": [610, 314] },
+    { "id": "sample-vae", "from": "sampler", "to": "vae", "label": "denoised latent", "variant": "emphasis", "route": "straight", "fromSide": "right", "toSide": "left", "labelAt": [960, 124] },
+    { "id": "vae-media", "from": "vae", "to": "media", "label": "pixel frames", "variant": "emphasis", "route": "straight", "fromSide": "bottom", "toSide": "top", "labelAt": [960, 200] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "One Sampler, Two Inputs", "items": ["Text tasks feed conditioning tokens only", "Image tasks add visual tokens and a spatial latent", "The sampler fuses both paths on the GPU"] },
+    { "dot": "orange", "title": "Two Encoder Families", "items": ["Wan 2.2 uses UMT5 and SigLIP encoders", "Qwen-Image-2.1 uses Qwen3-LLM and Qwen3-VL", "The task template selects the matching pair"] },
+    { "dot": "emerald", "title": "Decode Once", "items": ["The denoised latent is decoded a single time", "Frames are packaged as MP4 for video and PNG for image", "Everything lands in the local output store"] }
+  ]
+}

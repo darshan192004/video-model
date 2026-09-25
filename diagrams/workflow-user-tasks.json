@@ -1,0 +1,273 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ComfyUI Generation \u2014 User Task Flow",
+    "output": "diagrams/workflow-user-tasks.html",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "locale": "en",
+    "views": [
+      {
+        "id": "main-flow",
+        "label": "Request to output",
+        "focus": [
+          "user",
+          "task",
+          "inputs",
+          "validate",
+          "queue",
+          "render",
+          "output"
+        ],
+        "note": "The four generation tasks share one path from request to saved media."
+      },
+      {
+        "id": "input-gate",
+        "label": "Input gate",
+        "focus": [
+          "inputs",
+          "missing",
+          "validate"
+        ],
+        "note": "Image-to-video and editing stop until a reference image is provided."
+      },
+      {
+        "id": "render-handoff",
+        "label": "Queue and render",
+        "focus": [
+          "queue",
+          "render",
+          "output"
+        ],
+        "note": "Work serializes through the shared queue before reaching the GPU."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "ui",
+      "label": "User Interface"
+    },
+    {
+      "id": "engine",
+      "label": "ComfyUI Engine"
+    },
+    {
+      "id": "gpu",
+      "label": "RTX 3090 Renderer"
+    }
+  ],
+  "phases": [
+    {
+      "id": "intake",
+      "label": "Choose & configure",
+      "fromCol": 0,
+      "toCol": 2
+    },
+    {
+      "id": "execute",
+      "label": "Queue + generate",
+      "fromCol": 3,
+      "toCol": 5,
+      "variant": "emphasis"
+    }
+  ],
+  "groups": [
+    {
+      "id": "task_picker",
+      "label": "Task selection",
+      "lane": "ui",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "renderer_work",
+      "label": "GPU work",
+      "lane": "gpu",
+      "fromCol": 5,
+      "toCol": 5,
+      "variant": "emphasis"
+    },
+    {
+      "id": "recovery_loop",
+      "label": "Input recovery",
+      "lane": "ui",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "user",
+    "task",
+    "inputs",
+    "validate",
+    "queue",
+    "render",
+    "output"
+  ],
+  "nodes": [
+    {
+      "id": "user",
+      "lane": "ui",
+      "col": 0,
+      "type": "external",
+      "label": "User",
+      "width": 132
+    },
+    {
+      "id": "task",
+      "lane": "ui",
+      "col": 1,
+      "type": "frontend",
+      "label": "Choose Task",
+      "width": 132
+    },
+    {
+      "id": "inputs",
+      "lane": "ui",
+      "col": 2,
+      "type": "frontend",
+      "label": "Prompt + Inputs",
+      "tag": "upload allowed",
+      "width": 132
+    },
+    {
+      "id": "missing",
+      "lane": "ui",
+      "col": 3,
+      "type": "security",
+      "label": "Missing Image",
+      "width": 132
+    },
+    {
+      "id": "validate",
+      "lane": "engine",
+      "col": 3,
+      "type": "security",
+      "label": "Validate",
+      "tag": "auto",
+      "width": 132
+    },
+    {
+      "id": "queue",
+      "lane": "engine",
+      "col": 4,
+      "type": "messagebus",
+      "label": "Job Queue",
+      "width": 132
+    },
+    {
+      "id": "render",
+      "lane": "gpu",
+      "col": 5,
+      "type": "cloud",
+      "label": "GPU Renders",
+      "tag": "Wan / Qwen",
+      "width": 132
+    },
+    {
+      "id": "output",
+      "lane": "engine",
+      "col": 5,
+      "type": "backend",
+      "label": "Saved Output",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "user-task",
+      "from": "user",
+      "to": "task",
+      "label": "request job",
+      "variant": "emphasis"
+    },
+    {
+      "id": "task-inputs",
+      "from": "task",
+      "to": "inputs",
+      "variant": "default"
+    },
+    {
+      "id": "need-image",
+      "from": "inputs",
+      "to": "missing",
+      "label": "needs image",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "upload-retry",
+      "from": "missing",
+      "to": "inputs",
+      "label": "upload image",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "inputs-validate",
+      "from": "inputs",
+      "to": "validate",
+      "variant": "default"
+    },
+    {
+      "id": "validate-queue",
+      "from": "validate",
+      "to": "queue",
+      "label": "enqueue",
+      "variant": "default"
+    },
+    {
+      "id": "queue-render",
+      "from": "queue",
+      "to": "render",
+      "label": "dequeue",
+      "variant": "emphasis"
+    },
+    {
+      "id": "render-output",
+      "from": "render",
+      "to": "output",
+      "variant": "emphasis"
+    },
+    {
+      "id": "output-user",
+      "from": "output",
+      "to": "user",
+      "label": "download",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Four Tasks, One Path",
+      "items": [
+        "Text-to-image and text-to-video need only a prompt",
+        "Image edit and image-to-video additionally require an uploaded reference",
+        "Workflow templates auto-select the matching model"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Fair Sharing",
+      "items": [
+        "Every request enters one serial queue",
+        "The GPU renders one job at a time \u2014 later jobs wait",
+        "Completion writes media to the local output store"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Input Recovery",
+      "items": [
+        "I2V and Edit stop at the input gate, not at the GPU",
+        "Users upload the missing image and resubmit",
+        "No model weight is loaded until validation passes"
+      ]
+    }
+  ]
+}
