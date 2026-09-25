@@ -29,7 +29,7 @@ if command -v websocat >/dev/null 2>&1; then
   echo "$ws_code" | grep -qi "101" || fail "websocat ws not 101: $ws_code"
 else
   echo "[3-skip] websocat not installed; probe via openssl..."
-  handshake=$(printf 'GET /ws HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhpc2lzYXRlc3RrZXk\r\nSec-WebSocket-Version: 13\r\nOrigin: https://%s\r\n\r\n' \
+  handshake=$(printf 'GET /ws HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nOrigin: https://%s\r\n\r\n' \
     "$DOMAIN" "$DOMAIN" \
     | timeout 5 openssl s_client -quiet -connect "127.0.0.1:${PORT}" -servername "$DOMAIN" -CAfile /dev/null 2>/dev/null | head -1 || true)
   echo "$handshake" | grep -q "101" || fail "ws not 101: $handshake"
