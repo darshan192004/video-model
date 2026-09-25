@@ -3,14 +3,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from . import db
+from .routers import auth, jobs
 from .settings import get_settings
 
 log = logging.getLogger("media.main")
@@ -59,6 +60,11 @@ def create_app() -> FastAPI:
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
         return FileResponse(static / "index.html")
+
+    # /api/auth/*, /api/healthz and the SPA stay unauthenticated; every other
+    # router carries its own require_user/require_admin dependency.
+    app.include_router(auth.router)
+    app.include_router(jobs.router)
 
     return app
 

@@ -59,7 +59,7 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    async for session in session_scope():
+    async with get_sessionmaker()() as session:
         yield session
 
 
