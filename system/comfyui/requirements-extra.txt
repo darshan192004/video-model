@@ -1,0 +1,1 @@
+# Extra Python dependencies for ComfyUI custom nodes, pinned as needed.
