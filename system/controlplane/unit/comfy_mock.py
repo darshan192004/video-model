@@ -21,6 +21,12 @@ class MockComfy:
         self.interrupts = 0
         self.fail_prompt = False
         self.exec_error: str | None = None
+        # When set, any /prompt submission whose raw graph JSON contains this
+        # substring is rejected with 500 (simulates ComfyUI rejecting a node
+        # graph with an unknown node class). Lets the e2e suite exercise the
+        # job->failed path without a real backend or model weights.
+        self.fail_substr: str | None = None
+        self._last_raw_body = ""
 
     def transport(self) -> ASGITransport:
         return ASGITransport(app=self)
@@ -38,6 +44,7 @@ class MockComfy:
                 body += message.get("body", b"")
                 if not message.get("more_body", False):
                     break
+            self._last_raw_body = body.decode("utf-8", "replace")
             if body:
                 data = json.loads(body)
         status, payload = await self._route(scope["method"], scope["path"], data)
@@ -53,6 +60,8 @@ class MockComfy:
 
     async def _route(self, method: str, path: str, data: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if method == "POST" and path == "/prompt":
+            if self.fail_substr and self.fail_substr in self._last_raw_body:
+                return 500, {"error": f"mock: unknown node class ({self.fail_substr})"}
             if self.fail_prompt:
                 return 500, {"error": "mock prompt rejected"}
             prompt_id = str(uuid.uuid4())
