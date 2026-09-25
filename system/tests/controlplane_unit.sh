@@ -51,6 +51,20 @@ echo "controlplane_unit: running 73 in-process API + worker checks (sqlite, OIDC
 echo "controlplane_unit: checking TEMPLATE_FIXTURES_DIR fixture registry (Phase 3)"
 "${PY}" "${CP_DIR}/unit/fixtures_check.py"
 
+# --- Phase 3 smoke structure guards (exit criterion 5) ---
+# smoke.sh must address ONLY the control-plane origin: no ComfyUI URL, no
+# direct /prompt or /queue traffic. It must also consume lib_login.sh as the
+# single OIDC implementation rather than forking its own.
+if grep -E 'comfyui(:[0-9]+)?|:8999|/prompt|/queue' "${HERE}/smoke.sh" >/dev/null; then
+  echo "controlplane_smoke: FAIL smoke.sh must not address ComfyUI directly" >&2
+  exit 1
+fi
+if ! grep -q 'lib_login.sh' "${HERE}/smoke.sh"; then
+  echo "controlplane_smoke: FAIL smoke.sh must source tests/lib_login.sh" >&2
+  exit 1
+fi
+echo "controlplane_smoke: smoke.sh targets only the control-plane origin via lib_login (ok)"
+
 # --- Phase 2 workflow/schema structural checks (Task 2.7; class membership is
 #     deferred to the final consolidated pass via COMFY_OBJECT_INFO) ---
 bash "${HERE}/workflow_schema.sh"

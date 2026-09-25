@@ -72,9 +72,10 @@ api_post() { # <jar> <path> [json] -> body, asserts 2xx
   cat <<<"${API_BODY}"
 }
 
-login_as() { # <email> [groups]   groups unset/default->admin claim; ''->none
+login_as() { # <email> [groups] [password]   groups unset/default->admin claim; ''->none
   local email="$1"
   local groups="${2-__ADMIN_DEFAULT__}"
+  local secret="${3-${DEX_PASS}}"
   local jar
   jar="$(mktemp)"
 
@@ -117,7 +118,7 @@ login_as() { # <email> [groups]   groups unset/default->admin claim; ''->none
     fi
     ${CURL} "${CURL_COMMON[@]}" -o /dev/null -L -b "$jar" -c "$jar" \
       --data-urlencode "login=${email}" \
-      --data-urlencode "password=${DEX_PASS}" \
+      --data-urlencode "password=${secret}" \
       --data-urlencode "csrf=${csrf}" \
       "${action}" || { echo "login_as: Dex login POST failed" >&2; return 1; }
   fi
