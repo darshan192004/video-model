@@ -45,6 +45,12 @@ export PYTHONDONTWRITEBYTECODE=1
 echo "controlplane_unit: running 73 in-process API + worker checks (sqlite, OIDC_MOCK=1)"
 "${PY}" "${CP_DIR}/unit/run.py"
 
+# --- Phase 3 template fixture registry (TEMPLATE_FIXTURES_DIR) ---
+# run.py above asserts the unset case (exactly 5 keyed templates); this
+# process asserts the set case registers isolated test-only templates.
+echo "controlplane_unit: checking TEMPLATE_FIXTURES_DIR fixture registry (Phase 3)"
+"${PY}" "${CP_DIR}/unit/fixtures_check.py"
+
 # --- Phase 2 workflow/schema structural checks (Task 2.7; class membership is
 #     deferred to the final consolidated pass via COMFY_OBJECT_INFO) ---
 bash "${HERE}/workflow_schema.sh"

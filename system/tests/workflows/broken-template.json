@@ -1,0 +1,9 @@
+{
+  "id": "broken",
+  "display": "broken (failure fixture)",
+  "params": {},
+  "workflow": {
+    "1": { "class_type": "NotFound_BrokenTestNode_v0", "inputs": {} },
+    "9": { "class_type": "SaveImage", "inputs": { "images": ["1", 0], "filename_prefix": "broken-fixture" } }
+  }
+}

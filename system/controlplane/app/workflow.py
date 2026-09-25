@@ -33,15 +33,56 @@ def template_schema() -> dict[str, Any]:
     return value
 
 
+def _fixture_templates() -> dict[str, Any]:
+    """Extra dev/test-only templates from TEMPLATE_FIXTURES_DIR.
+
+    Each `.json` file registers a template id (its `id` field, defaulting to
+    the basename). Envelope form keeps the graph inline via a `workflow` key;
+    bare form treats the file itself as an API-format workflow with no params.
+    """
+    fixtures_dir = get_settings().template_fixtures_dir.strip()
+    definitions: dict[str, Any] = {}
+    if not fixtures_dir:
+        return definitions
+    for path in sorted(Path(fixtures_dir).glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            continue
+        if isinstance(data.get("workflow"), dict):
+            graph = data["workflow"]
+            entry = {key: value for key, value in data.items() if key != "workflow"}
+        else:
+            graph = data
+            entry = {"params": {}, "display": path.stem}
+        template_id = str(entry.get("id") or path.stem)
+        if template_id in definitions:
+            raise RuntimeError(f"duplicate fixture template id {template_id!r}")
+        definitions[template_id] = {"graph": graph, "_fixture": template_id, **entry}
+    return definitions
+
+
+def template_definitions() -> dict[str, Any]:
+    definitions = dict(template_schema().get("templates") or {})
+    for template_id, fixture in _fixture_templates().items():
+        definitions[template_id] = fixture
+    return definitions
+
+
 def template_spec(template_id: str) -> dict[str, Any]:
     try:
-        template = template_schema()["templates"][template_id]
+        template = template_definitions()[template_id]
     except KeyError as exc:
         raise ValueError(f"no template {template_id!r} in the schema") from exc
     return {"id": template_id, **template}
 
 
 def template_graph(template_id: str) -> dict[str, Any]:
+    fixture = _fixture_templates().get(template_id)
+    if fixture is not None:
+        graph = fixture.get("graph")
+        if not isinstance(graph, dict):
+            raise ValueError(f"fixture template {template_id!r} has no inline graph")
+        return graph
     spec = template_spec(template_id)
     filename = spec.get("workflow")
     if not filename:

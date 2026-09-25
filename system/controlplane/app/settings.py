@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # mounts; on a native checkout the repo-relative defaults are used.
     workflows_dir: str = str(Path(__file__).resolve().parents[2] / "workflows")
     template_schema_path: str = str(Path(__file__).resolve().parents[2] / "config" / "templates.schema.json")
+    # Test/dev-only: directory of extra isolated template fixtures (registered
+    # alongside the keyed schema). Unset in production.
+    template_fixtures_dir: str = ""
     worker_poll_seconds: float = 2.0
     worker_job_timeout_seconds: float = 3600.0
     worker_log_level: str = "INFO"
