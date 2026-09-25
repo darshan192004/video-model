@@ -1,0 +1,31 @@
+# Media system GPU stack (control-plane + ComfyUI + postgres + nginx).
+# One oneshot wrapper per umedia-box design (§5.8): systemd supervises the
+# compose lifecycle; `docker compose up -d` returns immediately so the unit
+# stays active via RemainAfterExit and only fails if the Compose project
+# cannot reach the configured target state.
+#
+# Deployed to /etc/systemd/system/media-system.service on the box by
+# docs/ops/gpu-wire-up.md, then:  systemctl daemon-reload && enable --now
+[Unit]
+Description=Media system container stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=comfy
+Group=docker
+WorkingDirectory=/home/comfy/media-system/deploy/compose
+Environment=HOME=/home/comfy
+# Compose resolves ./mounts relative to the first -f file's directory,
+# so the cwd only affects `.env` interpolation GROUPING (../../.env).
+ExecStart=/usr/bin/docker compose -f base.yml -f compose.override.gpu.yml -p media up -d --wait
+ExecStop=/usr/bin/docker compose -f base.yml -f compose.override.gpu.yml -p media down
+# oneshot + Restart: a failed `up -d --wait` retries instead of flapping off.
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
