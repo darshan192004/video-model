@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Control-plane unit/API assertions. Boots the FastAPI app in-process against
 # sqlite with the OIDC mock issuer: no containers, no database server, no GPU,
-# no model weights. Phase 1.5.5/1.5.6 extend this with the job API, mock
-# ComfyUI, worker, and gallery assertions.
+# no model weights. Phase 1.5.6 extends this with the mock ComfyUI worker
+# and gallery-copy assertions.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,7 +16,7 @@ if [[ ! -x "${PY}" ]]; then
 fi
 
 missing="$("${PY}" -c 'import importlib.util as u, sys
-mods = ("fastapi", "sqlalchemy", "authlib", "httpx", "itsdangerous", "pydantic_settings", "aiosqlite")
+mods = ("fastapi", "sqlalchemy", "authlib", "httpx", "itsdangerous", "pydantic_settings", "aiosqlite", "python_multipart")
 print(",".join(m for m in mods if u.find_spec(m) is None))')"
 if [[ -n "${missing}" ]]; then
   echo "FAIL: missing python deps (${missing})" >&2
@@ -40,5 +40,5 @@ export AUTO_MIGRATE=1
 export SPA_STATIC="${CP_DIR}/../spa/public"
 export PYTHONDONTWRITEBYTECODE=1
 
-echo "controlplane_unit: running in-process assertions (sqlite, OIDC_MOCK=1)"
+echo "controlplane_unit: running 58 in-process API checks (sqlite, OIDC_MOCK=1)"
 "${PY}" "${CP_DIR}/unit/run.py"

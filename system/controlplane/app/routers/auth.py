@@ -87,12 +87,20 @@ async def start(request: Request, db: DbSession) -> RedirectResponse:
     nonce = secrets.token_urlsafe(16)
     await _create_pending(db, state=state, nonce=nonce)
     if settings.oidc_mock:
+        if "email" in request.query_params:
+            email = request.query_params["email"]
+            groups = request.query_params.get("groups", "")
+        else:
+            email = "admin@test"
+            groups = request.query_params.get(
+                "groups", ",".join(sorted(settings.admin_group_names))
+            )
         query = urlencode(
             {
                 "code": "mock",
                 "state": state,
-                "email": request.query_params.get("email", "user@test"),
-                "groups": ",".join(parse_group_list(request.query_params.get("groups", ""))),
+                "email": email,
+                "groups": ",".join(parse_group_list(groups)),
             }
         )
         target = str(request.url_for("auth_callback")) + "?" + query
@@ -107,10 +115,15 @@ async def callback(request: Request, db: DbSession) -> RedirectResponse:
     if settings.oidc_mock:
         if request.query_params.get("code") != "mock":
             raise HTTPException(400, "invalid mock authorization code")
-        claims = mock_identity(
-            request.query_params.get("email", "user@test"),
-            parse_group_list(request.query_params.get("groups", "")),
-        )
+        if "email" in request.query_params:
+            email = request.query_params["email"]
+            groups = request.query_params.get("groups", "")
+        else:
+            email = "admin@test"
+            groups = request.query_params.get(
+                "groups", ",".join(sorted(settings.admin_group_names))
+            )
+        claims = mock_identity(email, parse_group_list(groups))
     else:
         claims = await exchange_code(request, nonce=pending.nonce or "")
 

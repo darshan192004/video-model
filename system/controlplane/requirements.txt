@@ -8,5 +8,6 @@ psycopg[binary]
 pydantic-settings
 httpx
 itsdangerous
+python-multipart
 # Unit tests run the app in-process against sqlite instead of postgres.
 aiosqlite

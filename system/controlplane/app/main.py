@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from . import db
-from .routers import auth, jobs
+from .routers import admin, auth, gallery, jobs, templates, uploads
 from .settings import get_settings
 
 log = logging.getLogger("media.main")
@@ -48,7 +48,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="media-controlplane", lifespan=lifespan)
+    app = FastAPI(
+        title="media-controlplane",
+        lifespan=lifespan,
+        openapi_url="/api/openapi.json",
+    )
     static = Path(settings.spa_static)
 
     @app.get("/api/healthz")
@@ -64,7 +68,11 @@ def create_app() -> FastAPI:
     # /api/auth/*, /api/healthz and the SPA stay unauthenticated; every other
     # router carries its own require_user/require_admin dependency.
     app.include_router(auth.router)
+    app.include_router(templates.router)
+    app.include_router(uploads.router)
     app.include_router(jobs.router)
+    app.include_router(gallery.router)
+    app.include_router(admin.router)
 
     return app
 

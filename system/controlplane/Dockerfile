@@ -17,6 +17,7 @@ RUN python3 -m pip install --no-cache-dir -r /opt/requirements.txt
 WORKDIR /opt/media
 COPY --from=spa-build /out /opt/media/spa
 COPY controlplane/app/ /opt/media/app/
+COPY controlplane/config/ /opt/media/config/
 RUN chown -R 1000:100 /opt/media
 USER 1000:100
 EXPOSE 8000
