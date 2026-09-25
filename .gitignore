@@ -6,6 +6,7 @@ system/deploy/certs/
 *.htpasswd
 *.crt
 *.key
+*.pem
 *.csr
 
 # model wiring (symlinks into user infra)
