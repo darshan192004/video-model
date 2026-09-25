@@ -322,12 +322,15 @@ ENV PIP_NO_CACHE_DIR=1 \
 # COMIFYUI *backend* revision: must include native Qwen-Image-2.1 support
 #   (merged in Comfy-Org/ComfyUI#16400; backend >= 0.37.0).
 # RELEASE_PIN is a full 40-char commit SHA on a released tag's lineage.
-ENV COMFYUI_BACKEND_REV=19f2c0f0c9894e867aa68f4edd7f9b283f9bfe8a
+ENV COMFYUI_BACKEND_REV=73c9bad4d21e7addbe1d13bc92eee0f1431b017d
 # COMfyUI *frontend*: pinned for reproducibility only (the SPA is the user
 # surface; ComfyUI's built-in UI is never served to users).
-ENV COMFYUI_FRONTEND_TAG=v1.41.13
+ENV COMFYUI_FRONTEND_TAG=v1.55.11
 
 # --- System deps --------------------------------------------------------
+# Erratum-A (native-verified 2026-09-25): the ubuntu22.04 base ships NO
+# python3/pip, and the frontend release asset is now dist.zip -- hence
+# python3 python3-pip and unzip are required here.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git \
       libgl1 \
@@ -336,6 +339,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxext6 \
       libxrender1 \
       curl \
+      unzip \
+      python3 \
+      python3-pip \
       && rm -rf /var/lib/apt/lists/*
 
 # --- Non-root user -------------------------------------------------------
@@ -343,12 +349,19 @@ RUN useradd --create-home --uid 1000 --gid 100 comfy
 WORKDIR /home/comfy
 
 # --- Python deps ---------------------------------------------------------
+# Erratum-B (native-verified 2026-09-25): backend v0.37.0 pulls
+# comfy-kitchen==0.2.35, which uses torch.library.custom_op with the builtin
+# `list[int]` annotation -- NOT supported by torch 2.4.1 (ValueError at import).
+# Pin the newest torch in the cu124 family that supports builtin generics
+# (>= ~2.6) with matching torchvision/torchaudio from the same index.
+# Resolve exact versions at the next container build:
+#   `pip index versions torch --index-url https://download.pytorch.org/whl/cu124`
 COPY requirements-extra.txt /opt/requirements-extra.txt
 RUN python3 -m pip install --upgrade pip \
     && python3 -m pip install \
-         torch==2.4.1 \
-         torchvision==0.19.1 \
-         torchaudio==2.4.1 \
+         torch==<cu124-stable> \
+         torchvision==<matching> \
+         torchaudio==<matching> \
          --index-url https://download.pytorch.org/whl/cu124
 
 # --- ComfyUI checkout (pinned) -------------------------------------------
@@ -366,11 +379,11 @@ RUN if [ -s /opt/requirements-extra.txt ]; then \
 # web/ dir is absent; we install it explicitly so the version is auditable
 # and reproducible without assuming the CLI's network fetch at boot.
 ARG COMFYUI_FRONTEND_URL=\
-https://github.com/Comfy-Org/ComfyUI_frontend/releases/download/${COMFYUI_FRONTEND_TAG}/dist.tar.gz
-RUN curl -fsSL "${COMFYUI_FRONTEND_URL}" -o /tmp/frontend.tar.gz \
+https://github.com/Comfy-Org/ComfyUI_frontend/releases/download/${COMFYUI_FRONTEND_TAG}/dist.zip
+RUN curl -fsSL "${COMFYUI_FRONTEND_URL}" -o /tmp/frontend.zip \
     && mkdir -p /opt/ComfyUI/web \
-    && tar -xzf /tmp/frontend.tar.gz -C /opt/ComfyUI/web --strip-components=1 \
-    && rm /tmp/frontend.tar.gz
+    && unzip -q /tmp/frontend.zip -d /opt/ComfyUI/web \
+    && rm /tmp/frontend.zip
 
 # --- Layout & entrypoint --------------------------------------------------
 RUN mkdir -p /opt/ComfyUI/models \
@@ -800,7 +813,7 @@ Create `system/controlplane/Dockerfile`:
 # --- Stage 1: build the SPA static output (placeholder in P0) ---
 FROM node:20-alpine AS spa-build
 WORKDIR /app/spa
-COPY spa/ ./          # real Nuxt source arrives in P1.5
+COPY spa/ ./
 RUN mkdir -p /out && cp -r public/. /out/ 2>/dev/null || cp public/index.html /out/
 
 # --- Stage 2: Python runtime ---
@@ -834,7 +847,9 @@ __pycache__
 Run:
 ```bash
 cd /home/darshan.parmar/Desktop/video-model/system
-docker build -t controlplane-media:0.1.0 ./controlplane
+# Erratum-C (verified 2026-09-25): build CONTEXT must be system/ (the Dockerfile
+# references spa/ and controlplane/ paths), so use -f ... . and NOT ./controlplane.
+docker build -t controlplane-media:0.1.0 -f controlplane/Dockerfile .
 docker run --rm -d --name cp-live -p 18000:8000 controlplane-media:0.1.0
 for i in $(seq 1 30); do sleep 1; code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18000/api/healthz 2>/dev/null || true); [ "$code" = "200" ] && break; done
 curl -s http://127.0.0.1:18000/api/healthz        # expect {"status":"ok"}
@@ -849,11 +864,11 @@ Same shape as `liveness.sh` (start on a random free port, poll `/api/healthz`, e
 
 - [ ] **Step 7: Wire `make build` for both images + commit**
 
-Extend the Makefile `build` target:
+Extend the Makefile `build` target (control-plane build uses context system/ per Erratum-C):
 ```makefile
 build: ## Build the ComfyUI + control-plane images
 	docker build -t comfyui-media:0.1.0 ./comfyui
-	docker build -t controlplane-media:0.1.0 ./controlplane
+	docker build -t controlplane-media:0.1.0 -f controlplane/Dockerfile .
 ```
 Commit:
 ```bash
