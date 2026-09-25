@@ -1,0 +1,3 @@
+# Control-plane API. Add authlib, uvicorn, etc. in Phase 1.5.
+fastapi
+uvicorn[standard]

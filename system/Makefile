@@ -10,8 +10,9 @@ help: ## Show targets
 doctor: ## Run preflight checks
 	scripts/doctor.sh
 
-build: ## Build the ComfyUI image
+build: ## Build the ComfyUI + control-plane images
 	docker build -t comfyui-media:0.1.0 ./comfyui
+	docker build -t controlplane-media:0.1.0 -f controlplane/Dockerfile .
 
 dev-up: ## Start CPU-mode stack (dev box, smoke only)
 	COMFY_MODE=cpu docker compose -f $(COMPOSE_BASE) -f deploy/compose/compose.override.cpu.yml up -d --build

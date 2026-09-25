@@ -1,0 +1,24 @@
+# Syntax: docker/dockerfile:1.7
+# Control-plane image: Nuxt SPA (SSG) baked into a FastAPI runtime.
+# P0 ships a placeholder static index; the full Nuxt build replaces it in Phase 1.5.
+
+# --- Stage 1: build the SPA static output (placeholder in P0) ---
+FROM node:20-alpine AS spa-build
+WORKDIR /app/spa
+COPY spa/ ./          # real Nuxt source arrives in P1.5
+RUN mkdir -p /out && cp -r public/. /out/ 2>/dev/null || cp public/index.html /out/
+
+# --- Stage 2: Python runtime ---
+FROM python:3.12-slim AS runtime
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+RUN useradd --create-home --uid 1000 --gid 100 control
+COPY controlplane/requirements.txt /opt/requirements.txt
+RUN python3 -m pip install --no-cache-dir -r /opt/requirements.txt
+WORKDIR /opt/media
+COPY --from=spa-build /out /opt/media/spa
+COPY controlplane/app/ /opt/media/app/
+RUN chown -R 1000:100 /opt/media
+USER 1000:100
+EXPOSE 8000
+ENV CONTROLPLANE_LISTEN=0.0.0.0 CONTROLPLANE_PORT=8000 SPA_STATIC=/opt/media/spa
+CMD ["sh", "-c", "cd /opt/media && uvicorn app.main:app --host ${CONTROLPLANE_LISTEN} --port ${CONTROLPLANE_PORT}"]
