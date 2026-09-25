@@ -1,0 +1,29 @@
+# Test-only static connector; documented dev identities.
+# Generate both hashes with:
+# python3 -c 'import bcrypt; print(bcrypt.hashpw(b"admin", bcrypt.gensalt(rounds=12)).decode()); print(bcrypt.hashpw(b"user", bcrypt.gensalt(rounds=12)).decode())'
+issuer: http://host.docker.internal:5556/dex
+storage:
+  type: memory
+web:
+  http: "0.0.0.0:5556"
+staticClients:
+  - id: media-controlplane
+    redirectURIs:
+      - "https://media.local/api/auth/callback"
+      - "http://localhost/api/auth/callback"
+    name: Media System
+    secret: test-secret
+enablePasswordDB: true
+staticPasswords:
+  - email: "admin@test"
+    hash: "$2b$12$REPLACE_WITH_BCRYPT_HASH"
+    username: "admin"
+    userID: "test-admin"
+  - email: "user@test"
+    hash: "$2b$12$REPLACE_WITH_BCRYPT_HASH"
+    username: "user"
+    userID: "test-user"
+staticGroups:
+  - email: "admin@test"
+    group: "media-admins"
+    userID: "test-admin"

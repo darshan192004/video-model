@@ -1,0 +1,27 @@
+# Test-only static connector; documented dev identities.
+issuer: http://host.docker.internal:5556/dex
+storage:
+  type: memory
+web:
+  http: "0.0.0.0:5556"
+staticClients:
+  - id: media-controlplane
+    redirectURIs:
+      - "https://media.local/api/auth/callback"
+      - "http://localhost/api/auth/callback"
+    name: Media System
+    secret: test-secret
+enablePasswordDB: true
+staticPasswords:
+  - email: "admin@test"
+    hash: "$2b$12$M2W7ngeWpJT0bc/ELjCCgenAG4DlAOeTDgZeyICa.LS7F0BMn3h2q"
+    username: "admin"
+    userID: "test-admin"
+  - email: "user@test"
+    hash: "$2b$12$.FV0R2hWLhNwOMzlVWu.aOL../rq5aY7MpJjWid.rivv406/t4EfO"
+    username: "user"
+    userID: "test-user"
+staticGroups:
+  - email: "admin@test"
+    group: "media-admins"
+    userID: "test-admin"

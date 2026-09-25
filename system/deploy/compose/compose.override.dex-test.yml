@@ -1,0 +1,16 @@
+services:
+  controlplane:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  dex-test:
+    image: ghcr.io/dexidp/dex:v2.39.1
+    command: ["serve", "/etc/dex/config.yaml"]
+    ports:
+      - "127.0.0.1:5556:5556"
+    volumes:
+      - ../dex/config.yaml:/etc/dex/config.yaml:ro
+    networks:
+      - comfy-internal
+    # The test host must resolve host.docker.internal to 127.0.0.1; the
+    # control-plane reaches the same published issuer through host-gateway.
