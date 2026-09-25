@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["models", "version"],
+  "properties": {
+    "version": { "type": "integer" },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "role", "filename", "dir", "sha256"],
+        "properties": {
+          "id": { "type": "string" },
+          "role": { "type": "string" },
+          "filename": { "type": "string" },
+          "dir": {
+            "type": "string",
+            "enum": ["diffusion_models", "text_encoders", "vae", "checkpoints", "loras", "clip", "controlnet"]
+          },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "size_hint_gb": { "type": "number" },
+          "required": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

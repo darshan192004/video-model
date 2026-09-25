@@ -1,0 +1,17 @@
+{
+  "$schema": "./models.schema.json",
+  "version": 1,
+  "release_date": "2026-09-25",
+  "note": "Weights serve from MODELS_PATH; link-models.sh maps into ComfyUI/models layout.",
+  "models": [
+    { "id": "qwen-diffusion", "role": "diffusion_models", "filename": "qwen_image_2.1_int8_convrot.safetensors", "dir": "diffusion_models", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 8.0,  "required": true },
+    { "id": "qwen-te",        "role": "text_encoders",   "filename": "qwen_image_2.1_text_encoder.f16.safetensors", "dir": "text_encoders", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 4.0,  "required": true },
+    { "id": "qwen-vae",       "role": "vae",             "filename": "qwen_image_2.1_vae.safetensors", "dir": "vae", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 0.3,  "required": true },
+    { "id": "wan-t2v-high",   "role": "diffusion_models", "filename": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors", "dir": "diffusion_models", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 14.0, "required": true },
+    { "id": "wan-t2v-low",    "role": "diffusion_models", "filename": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors", "dir": "diffusion_models", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 14.0, "required": true },
+    { "id": "wan-i2v-high",   "role": "diffusion_models", "filename": "wan2.2_i2v_high_noise_14B_fp16.safetensors", "dir": "diffusion_models", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 28.0, "required": true },
+    { "id": "wan-i2v-low",    "role": "diffusion_models", "filename": "wan2.2_i2v_low_noise_14B_fp16.safetensors", "dir": "diffusion_models", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 28.0, "required": true },
+    { "id": "wan-te",         "role": "text_encoders",   "filename": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "dir": "text_encoders", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 8.0,  "required": true },
+    { "id": "wan-vae",        "role": "vae",             "filename": "wan_2.1_vae.safetensors", "dir": "vae", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "size_hint_gb": 0.4,  "required": true }
+  ]
+}
