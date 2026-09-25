@@ -3,3 +3,6 @@
 .venv
 __pycache__
 *.pyc
+spa/node_modules
+spa/.nuxt
+spa/dist

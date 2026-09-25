@@ -43,3 +43,23 @@ export PYTHONDONTWRITEBYTECODE=1
 
 echo "controlplane_unit: running 69 in-process API + worker checks (sqlite, OIDC_MOCK=1)"
 "${PY}" "${CP_DIR}/unit/run.py"
+
+# --- SPA asset assertions (Step 2 of Task 1.5.7; strengthened once built) ---
+SPA_DIST="${CP_DIR}/../spa/dist"
+if [[ ! -f "${SPA_DIST}/index.html" ]]; then
+  echo "controlplane_spa: SKIP asset assertions (dist/ not built yet; final pass builds it)"
+else
+  echo "controlplane_spa: assert dist/index.html exists (ok)"
+  # The SPA must talk to the same origin it was served from: every API call is
+  # the relative '/api/...'. Any absolute http(s) URL into /api leaks the
+  # origin to the browser and breaks when the app is served behind the proxy.
+  ABS_API_URLS="$(
+    grep -rhoE '"https?://[^"]*"?/api/' "${SPA_DIST}"/_nuxt 2>/dev/null || true
+  )"
+  if [[ -n "${ABS_API_URLS}" ]]; then
+    echo "controlplane_spa: FAIL absolute API urls in bundle:"
+    printf '%s\n' "${ABS_API_URLS}"
+    exit 1
+  fi
+  echo "controlplane_spa: assert no http(s) absolute /api/ URLs in bundle (ok)"
+fi
