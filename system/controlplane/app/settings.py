@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     auto_migrate: bool = True
     spa_static: str = "/opt/media/spa"
 
+    # Where the worker reads ComfyUI's scratch output volume. In compose this is
+    # the shared `comfy-output` named volume; on a native dev box it points at
+    # the mock/real backend's output directory.
+    comfy_output_dir: str = "/data/comfy-output"
+    worker_poll_seconds: float = 2.0
+    worker_job_timeout_seconds: float = 3600.0
+    worker_log_level: str = "INFO"
+
     SESSION_TTL_SECONDS: ClassVar[int] = 12 * 60 * 60
     AUTHZ_TTL_SECONDS: ClassVar[int] = 10 * 60
     SID_COOKIE: ClassVar[str] = "media_sid"

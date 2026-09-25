@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import sys
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -15,11 +16,13 @@ from sqlalchemy import select  # noqa: E402
 
 from app.db import get_sessionmaker  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.models import GalleryMedia, Job, User  # noqa: E402
+from app.models import GalleryMedia, Job, User, utcnow  # noqa: E402
 from app.settings import get_settings  # noqa: E402
+from app.worker import claim_next, make_client, process  # noqa: E402
+from unit.comfy_mock import MockComfy  # noqa: E402
 
 BASE_URL = "https://testserver"
-EXPECTED_CHECKS = 58
+EXPECTED_CHECKS = 69
 
 results: list[tuple[bool, str, str]] = []
 
@@ -111,6 +114,125 @@ async def seed_gallery_item(email: str, label: str) -> dict[str, int | str]:
             "job_id": str(job.id),
             "media_id": media.id,
         }
+
+
+async def _enqueue(email: str, seed: str, at) -> Job:
+    async with get_sessionmaker()() as db:
+        user = (await db.execute(select(User).where(User.email == email))).scalar_one()
+        job = Job(
+            owner_id=user.id,
+            template_id="smoke",
+            params={"seed": seed},
+            status="queued",
+            created_at=at,
+        )
+        db.add(job)
+        await db.commit()
+        await db.refresh(job)
+        return job
+
+
+async def worker_scenarios() -> None:
+    settings = get_settings()
+    settings.worker_poll_seconds = 0.05
+    output_dir = Path(settings.comfy_output_dir)
+    mock = MockComfy(output_dir)
+    client = make_client(mock.transport())
+    base = utcnow()
+
+    async with get_sessionmaker()() as db:
+        first = await _enqueue("admin@test", "first", base)
+        second = await _enqueue("admin@test", "second", base + timedelta(seconds=1))
+        claimed = await claim_next(db)
+        check(
+            "fifo claim picks the earliest queued job",
+            claimed is not None and claimed.id == first.id,
+            f"got {claimed.id if claimed else None}",
+        )
+        await process(db, claimed, client)
+    async with get_sessionmaker()() as db:
+        claimed = await claim_next(db)
+        check(
+            "fifo claim advances in creation order",
+            claimed is not None and claimed.id == second.id,
+            f"got {claimed.id if claimed else None}",
+        )
+        await process(db, claimed, client)
+
+    async with get_sessionmaker()() as db:
+        for job_id, label in ((first.id, "first"), (second.id, "second")):
+            job = await db.get(Job, job_id)
+            check(
+                f"fifo job {label} finished success",
+                job is not None and job.status == "success",
+                f"got {job.status if job else None}",
+            )
+        media = (
+            (
+                await db.execute(
+                    select(GalleryMedia).where(GalleryMedia.job_id == first.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        check(
+            "success job gained a gallery row",
+            len(media) == 1 and media[0].filename == "out.png",
+            f"got {[m.filename for m in media]}",
+        )
+    job_dir = Path(settings.gallery_root) / str(first.owner_id) / str(first.id)
+    check("gallery file exists on disk", (job_dir / "out.png").is_file())
+    check("gallery metadata sidecar exists", (job_dir / "metadata.json").is_file())
+
+    mock.fail_prompt = True
+    broken = await _enqueue("admin@test", "broken", utcnow())
+    async with get_sessionmaker()() as db:
+        await process(db, broken, client)
+    async with get_sessionmaker()() as db:
+        broken = await db.get(Job, broken.id)
+        check(
+            "comfy submit failure fails the job",
+            broken is not None and broken.status == "failed" and bool(broken.error),
+            f"got {broken.status if broken else None} {broken.error if broken else None}",
+        )
+    mock.fail_prompt = False
+
+    async with get_sessionmaker()() as db:
+        victim = await _enqueue("admin@test", "victim", utcnow())
+        victim.status = "cancelled"
+        victim.finished_at = utcnow()
+        await db.commit()
+    async with get_sessionmaker()() as db:
+        claimed = await claim_next(db)
+        check("cancelled queued job is skipped by the fifo claim", claimed is None)
+
+    async with get_sessionmaker()() as db:
+        lived = await _enqueue("admin@test", "live", utcnow())
+        lived.counts = {"cancel_requested": True}
+        await db.commit()
+    async with get_sessionmaker()() as db:
+        await process(db, lived, client)
+    async with get_sessionmaker()() as db:
+        lived = await db.get(Job, lived.id)
+        check(
+            "running cancellation interrupts comfy and marks cancelled",
+            mock.interrupts >= 1 and lived is not None and lived.status == "cancelled",
+            f"interrupts={mock.interrupts} status={lived.status if lived else None}",
+        )
+
+    mock.exec_error = "mock generation exploded"
+    doomed = await _enqueue("admin@test", "doomed", utcnow())
+    async with get_sessionmaker()() as db:
+        await process(db, doomed, client)
+    async with get_sessionmaker()() as db:
+        doomed = await db.get(Job, doomed.id)
+        check(
+            "comfy execution error fails the job with the message",
+            doomed is not None and doomed.status == "failed" and doomed.error == "mock generation exploded",
+            f"got {doomed.error if doomed else None}",
+        )
+    mock.exec_error = None
 
 
 def main() -> int:
@@ -528,6 +650,8 @@ def main() -> int:
             "moderated gallery file is 404",
             client.get(f"/api/gallery/{moderation_media_id}/file").status_code == 404,
         )
+
+        client.portal.call(worker_scenarios)
 
     failed = [name for ok, name, _ in results if not ok]
     if len(results) != EXPECTED_CHECKS:

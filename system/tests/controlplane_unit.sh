@@ -36,9 +36,10 @@ export ADMIN_GROUPS=media-admins
 export DATABASE_URL="sqlite+aiosqlite:///${WORK}/controlplane_unit.db"
 export GALLERY_ROOT="${WORK}/galleries"
 export UPLOAD_ROOT="${WORK}/uploads"
+export COMFY_OUTPUT_DIR="${WORK}/comfy-output"
 export AUTO_MIGRATE=1
 export SPA_STATIC="${CP_DIR}/../spa/public"
 export PYTHONDONTWRITEBYTECODE=1
 
-echo "controlplane_unit: running 58 in-process API checks (sqlite, OIDC_MOCK=1)"
+echo "controlplane_unit: running 69 in-process API + worker checks (sqlite, OIDC_MOCK=1)"
 "${PY}" "${CP_DIR}/unit/run.py"

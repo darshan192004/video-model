@@ -46,11 +46,50 @@ services:
       AUTO_MIGRATE: ${AUTO_MIGRATE:-1}
       OIDC_MOCK: ${OIDC_MOCK:-0}
       SPA_STATIC: ${SPA_STATIC:-/opt/media/spa}
+      COMFY_OUTPUT_DIR: ${COMFY_OUTPUT_DIR:-/data/comfy-output}
     volumes:
       - media-galleries:${GALLERY_ROOT:-/data/galleries}
       - media-uploads:${UPLOAD_ROOT:-/data/uploads}
+      # The worker reads ComfyUI's scratch output from this shared volume.
+      - comfy-output:${COMFY_OUTPUT_DIR:-/data/comfy-output}
     # Postgres must be accepting connections before schema_up() runs at boot;
     # the app also retries DATABASE_URL for up to 60s.
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - comfy-internal
+
+  worker:
+    # Same controlplane image, but as a single FIFO job consumer instead of the
+    # API: claims `jobs WHERE status='queued' ORDER BY created_at FOR UPDATE
+    # SKIP LOCKED`, drives ComfyUI, then copies output into the owner's gallery.
+    image: controlplane-media:0.1.0
+    restart: unless-stopped
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://media:media@postgres:5432/media}
+      COMFY_INTERNAL_URL: ${COMFY_INTERNAL_URL:-http://comfyui:8188}
+      COMFY_OUTPUT_DIR: ${COMFY_OUTPUT_DIR:-/data/comfy-output}
+      GALLERY_ROOT: ${GALLERY_ROOT:-/data/galleries}
+      UPLOAD_ROOT: ${UPLOAD_ROOT:-/data/uploads}
+      DEX_OIDC_ISSUER: ${DEX_OIDC_ISSUER:-http://host.docker.internal:5556/dex}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-media-controlplane}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-https://${DOMAIN:-media.local}/api/auth/callback}
+      ADMIN_GROUPS: ${ADMIN_GROUPS:-media-admins}
+      DEFAULT_ADMIN_GROUPS: ${DEFAULT_ADMIN_GROUPS:-media-admins}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-1}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-2}
+      WORKER_JOB_TIMEOUT_SECONDS: ${WORKER_JOB_TIMEOUT_SECONDS:-3600}
+    volumes:
+      - media-galleries:${GALLERY_ROOT:-/data/galleries}
+      - media-uploads:${UPLOAD_ROOT:-/data/uploads}
+      - comfy-output:${COMFY_OUTPUT_DIR:-/data/comfy-output}
+    command: ["python", "-m", "app.worker"]
     depends_on:
       postgres:
         condition: service_healthy
