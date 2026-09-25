@@ -1,0 +1,14 @@
+{
+  "1": { "class_type": "LoadImage", "inputs": { "image": "{PARAM.image}" } },
+  "2": { "class_type": "UNETLoader", "inputs": { "unet_name": "wan2.2_i2v_high_noise_14B_fp16.safetensors", "weight_dtype": "default" } },
+  "3": { "class_type": "UNETLoader", "inputs": { "unet_name": "wan2.2_i2v_low_noise_14B_fp16.safetensors", "weight_dtype": "default" } },
+  "4": { "class_type": "CLIPLoader", "inputs": { "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type": "wan" } },
+  "5": { "class_type": "VAELoader", "inputs": { "vae_name": "wan_2.1_vae.safetensors" } },
+  "6": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["4", 0], "text": "{PARAM.prompt}" } },
+  "7": { "class_type": "CLIPTextEncode", "inputs": { "clip": ["4", 0], "text": "{PARAM.negative_prompt}" } },
+  "8": { "class_type": "WanImageToVideo", "inputs": { "image": ["1", 0], "vae": ["5", 0], "width": "{PARAM.width}", "height": "{PARAM.height}", "length": "{PARAM.length}", "batch_size": 1 } },
+  "9": { "class_type": "KSampler", "inputs": { "model": ["2", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["8", 0], "seed": "{PARAM.seed}", "steps": "{PARAM.steps}", "cfg": "{PARAM.cfg}", "sampler_name": "euler", "scheduler": "beta", "denoise": 1.0 } },
+  "10": { "class_type": "KSampler", "inputs": { "model": ["3", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["9", 0], "seed": "{PARAM.seed}", "steps": "{PARAM.steps}", "cfg": "{PARAM.cfg}", "sampler_name": "euler", "scheduler": "beta", "denoise": 0.8 } },
+  "11": { "class_type": "VAEDecode", "inputs": { "samples": ["10", 0], "vae": ["5", 0] } },
+  "12": { "class_type": "SaveImage", "inputs": { "images": ["11", 0], "filename_prefix": "wan-i2v" } }
+}

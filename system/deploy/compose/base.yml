@@ -47,11 +47,20 @@ services:
       OIDC_MOCK: ${OIDC_MOCK:-0}
       SPA_STATIC: ${SPA_STATIC:-/opt/media/spa}
       COMFY_OUTPUT_DIR: ${COMFY_OUTPUT_DIR:-/data/comfy-output}
+      COMFY_INPUT_DIR: ${COMFY_INPUT_DIR:-/data/comfy-input}
+      WORKFLOWS_DIR: ${WORKFLOWS_DIR:-/opt/media/workflows}
+      TEMPLATE_SCHEMA: ${TEMPLATE_SCHEMA:-/opt/media/config/templates.schema.json}
     volumes:
       - media-galleries:${GALLERY_ROOT:-/data/galleries}
       - media-uploads:${UPLOAD_ROOT:-/data/uploads}
-      # The worker reads ComfyUI's scratch output from this shared volume.
+      # The worker reads ComfyUI's scratch output and stages input images from
+      # these shared volumes.
       - comfy-output:${COMFY_OUTPUT_DIR:-/data/comfy-output}
+      - comfy-input:${COMFY_INPUT_DIR:-/data/comfy-input}
+      # Phase 2 graphs + schema are read-only mounts owned by the repo, never
+      # written by the API/worker containers.
+      - ../../workflows:/opt/media/workflows:ro
+      - ../../config:/opt/media/config:ro
     # Postgres must be accepting connections before schema_up() runs at boot;
     # the app also retries DATABASE_URL for up to 60s.
     depends_on:
@@ -73,8 +82,11 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://media:media@postgres:5432/media}
       COMFY_INTERNAL_URL: ${COMFY_INTERNAL_URL:-http://comfyui:8188}
       COMFY_OUTPUT_DIR: ${COMFY_OUTPUT_DIR:-/data/comfy-output}
+      COMFY_INPUT_DIR: ${COMFY_INPUT_DIR:-/data/comfy-input}
       GALLERY_ROOT: ${GALLERY_ROOT:-/data/galleries}
       UPLOAD_ROOT: ${UPLOAD_ROOT:-/data/uploads}
+      WORKFLOWS_DIR: ${WORKFLOWS_DIR:-/opt/media/workflows}
+      TEMPLATE_SCHEMA: ${TEMPLATE_SCHEMA:-/opt/media/config/templates.schema.json}
       DEX_OIDC_ISSUER: ${DEX_OIDC_ISSUER:-http://host.docker.internal:5556/dex}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-media-controlplane}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
@@ -89,6 +101,9 @@ services:
       - media-galleries:${GALLERY_ROOT:-/data/galleries}
       - media-uploads:${UPLOAD_ROOT:-/data/uploads}
       - comfy-output:${COMFY_OUTPUT_DIR:-/data/comfy-output}
+      - comfy-input:${COMFY_INPUT_DIR:-/data/comfy-input}
+      - ../../workflows:/opt/media/workflows:ro
+      - ../../config:/opt/media/config:ro
     command: ["python", "-m", "app.worker"]
     depends_on:
       postgres:

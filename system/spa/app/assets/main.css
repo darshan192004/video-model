@@ -198,6 +198,11 @@ nav a.router-link-active {
   color: var(--text-dim);
 }
 
+.req {
+  color: var(--bad);
+  margin-inline-start: 0.15rem;
+}
+
 .content {
   max-width: 1180px;
   margin: 0 auto;

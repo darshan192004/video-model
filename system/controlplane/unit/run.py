@@ -16,13 +16,14 @@ from sqlalchemy import select  # noqa: E402
 
 from app.db import get_sessionmaker  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.models import GalleryMedia, Job, User, utcnow  # noqa: E402
+from app.models import GalleryMedia, Job, JobStatus, User, utcnow  # noqa: E402
 from app.settings import get_settings  # noqa: E402
+from app import workflow as workflow_mod  # noqa: E402
 from app.worker import claim_next, make_client, process  # noqa: E402
 from unit.comfy_mock import MockComfy  # noqa: E402
 
 BASE_URL = "https://testserver"
-EXPECTED_CHECKS = 69
+EXPECTED_CHECKS = 73
 
 results: list[tuple[bool, str, str]] = []
 
@@ -140,6 +141,18 @@ async def worker_scenarios() -> None:
     client = make_client(mock.transport())
     base = utcnow()
 
+    # The API block above leaves queued jobs behind (e.g. the isolation job);
+    # retire them so the FIFO fixture below is deterministic regardless of the
+    # API test ordering above.
+    async with get_sessionmaker()() as db:
+        leftovers = (
+            await db.execute(select(Job).where(Job.status == JobStatus.QUEUED.value))
+        ).scalars().all()
+        for leftover in leftovers:
+            leftover.status = JobStatus.CANCELLED.value
+            leftover.finished_at = utcnow()
+        await db.commit()
+
     async with get_sessionmaker()() as db:
         first = await _enqueue("admin@test", "first", base)
         second = await _enqueue("admin@test", "second", base + timedelta(seconds=1))
@@ -178,19 +191,20 @@ async def worker_scenarios() -> None:
         )
         check(
             "success job gained a gallery row",
-            len(media) == 1 and media[0].filename == "out.png",
+            len(media) == 1 and media[0].filename == "run_0001-out.png",
             f"got {[m.filename for m in media]}",
         )
     job_dir = Path(settings.gallery_root) / str(first.owner_id) / str(first.id)
-    check("gallery file exists on disk", (job_dir / "out.png").is_file())
+    check("gallery file exists on disk", (job_dir / "run_0001-out.png").is_file())
     check("gallery metadata sidecar exists", (job_dir / "metadata.json").is_file())
 
     mock.fail_prompt = True
-    broken = await _enqueue("admin@test", "broken", utcnow())
+    broken_id = (await _enqueue("admin@test", "broken", utcnow())).id
     async with get_sessionmaker()() as db:
+        broken = await db.get(Job, broken_id)
         await process(db, broken, client)
     async with get_sessionmaker()() as db:
-        broken = await db.get(Job, broken.id)
+        broken = await db.get(Job, broken_id)
         check(
             "comfy submit failure fails the job",
             broken is not None and broken.status == "failed" and bool(broken.error),
@@ -198,8 +212,9 @@ async def worker_scenarios() -> None:
         )
     mock.fail_prompt = False
 
+    victim_id = (await _enqueue("admin@test", "victim", utcnow())).id
     async with get_sessionmaker()() as db:
-        victim = await _enqueue("admin@test", "victim", utcnow())
+        victim = await db.get(Job, victim_id)
         victim.status = "cancelled"
         victim.finished_at = utcnow()
         await db.commit()
@@ -207,14 +222,16 @@ async def worker_scenarios() -> None:
         claimed = await claim_next(db)
         check("cancelled queued job is skipped by the fifo claim", claimed is None)
 
+    lived_id = (await _enqueue("admin@test", "live", utcnow())).id
     async with get_sessionmaker()() as db:
-        lived = await _enqueue("admin@test", "live", utcnow())
+        lived = await db.get(Job, lived_id)
         lived.counts = {"cancel_requested": True}
         await db.commit()
     async with get_sessionmaker()() as db:
+        lived = await db.get(Job, lived_id)
         await process(db, lived, client)
     async with get_sessionmaker()() as db:
-        lived = await db.get(Job, lived.id)
+        lived = await db.get(Job, lived_id)
         check(
             "running cancellation interrupts comfy and marks cancelled",
             mock.interrupts >= 1 and lived is not None and lived.status == "cancelled",
@@ -222,11 +239,12 @@ async def worker_scenarios() -> None:
         )
 
     mock.exec_error = "mock generation exploded"
-    doomed = await _enqueue("admin@test", "doomed", utcnow())
+    doomed_id = (await _enqueue("admin@test", "doomed", utcnow())).id
     async with get_sessionmaker()() as db:
+        doomed = await db.get(Job, doomed_id)
         await process(db, doomed, client)
     async with get_sessionmaker()() as db:
-        doomed = await db.get(Job, doomed.id)
+        doomed = await db.get(Job, doomed_id)
         check(
             "comfy execution error fails the job with the message",
             doomed is not None and doomed.status == "failed" and doomed.error == "mock generation exploded",
@@ -321,21 +339,21 @@ def main() -> int:
         template_body = templates.json() if templates.status_code == 200 else {}
         template_ids = [item.get("id") for item in template_body.get("templates", [])]
         check(
-            "templates expose exactly the five provisional workflows",
+            "templates expose exactly the five phase-2 workflows",
             templates.status_code == 200
-            and template_ids == ["t2v", "i2v", "loras", "edit", "smoke"],
+            and template_ids == ["qwen-t2i", "qwen-edit", "wan-t2v", "wan-i2v", "smoke"],
             templates.text,
         )
         smoke_schema = client.get("/api/templates/smoke/schema")
         smoke_body = smoke_schema.json() if smoke_schema.status_code == 200 else {}
-        smoke_params = smoke_body.get("params", [])
+        smoke_params = smoke_body.get("params", {})
+        seed_spec = smoke_params.get("seed", {})
         check(
-            "smoke schema has one optional string seed",
+            "smoke schema has one optional string seed with a prefix default",
             smoke_schema.status_code == 200
-            and len(smoke_params) == 1
-            and smoke_params[0].get("name") == "seed"
-            and smoke_params[0].get("type") == "string"
-            and smoke_params[0].get("default") is None,
+            and list(smoke_params) == ["seed"]
+            and seed_spec.get("type") == "string"
+            and seed_spec.get("default") == "smoke-out",
             smoke_schema.text,
         )
         check(
@@ -361,7 +379,12 @@ def main() -> int:
         )
         unsafe_image = client.post(
             "/api/jobs",
-            json={"template_id": "i2v", "params": {"image": "/etc/passwd"}},
+            json={"template_id": "wan-i2v", "params": {"image": "/etc/passwd"}},
+            headers=csrf_headers(client),
+        )
+        bogus_resolution = client.post(
+            "/api/jobs",
+            json={"template_id": "wan-t2v", "params": {"resolution": [640, 480]}},
             headers=csrf_headers(client),
         )
         check(
@@ -369,8 +392,10 @@ def main() -> int:
             invalid_params.status_code == 422
             and invalid_params.headers.get("content-type", "").startswith("application/json")
             and unsafe_image.status_code == 422
-            and unsafe_image.headers.get("content-type", "").startswith("application/json"),
-            f"type {invalid_params.status_code} {invalid_params.text}; image {unsafe_image.status_code} {unsafe_image.text}",
+            and unsafe_image.headers.get("content-type", "").startswith("application/json")
+            and bogus_resolution.status_code == 422
+            and bogus_resolution.headers.get("content-type", "").startswith("application/json"),
+            f"type {invalid_params.status_code} {invalid_params.text}; image {unsafe_image.status_code} {unsafe_image.text}; res {bogus_resolution.status_code} {bogus_resolution.text}",
         )
         queued = client.post(
             "/api/jobs",
@@ -515,6 +540,42 @@ def main() -> int:
             upload_files.status_code == 200
             and any(item.get("name") == uploaded_path.name for item in upload_files.json().get("files", [])),
             upload_files.text,
+        )
+
+        qwen_graph = workflow_mod.template_graph("qwen-t2i")
+        qwen_payload = workflow_mod.build_workflow(
+            "qwen-t2i", {"prompt": "hello from unit"}, qwen_graph
+        )
+        check(
+            "qwen-t2i injects the prompt and default megapixel dimensions",
+            qwen_payload["4"]["inputs"]["text"] == "hello from unit"
+            and qwen_payload["5"]["inputs"]["width"] == 896
+            and qwen_payload["5"]["inputs"]["height"] == 1152,
+            str(qwen_payload["5"]),
+        )
+        wan_graph = workflow_mod.template_graph("wan-t2v")
+        wan_payload = workflow_mod.build_workflow(
+            "wan-t2v", {"prompt": "sky", "resolution": [1280, 720]}, wan_graph
+        )
+        check(
+            "wan-t2v injects the selected resolution tuple as width/height",
+            wan_payload["7"]["inputs"]["width"] == 1280
+            and wan_payload["7"]["inputs"]["height"] == 720,
+            str(wan_payload["7"]),
+        )
+        smoke_graph = workflow_mod.template_graph("smoke")
+        smoke_payload = workflow_mod.build_workflow("smoke", {}, smoke_graph)
+        check(
+            "smoke filename_prefix falls back to the seed default",
+            smoke_payload["9"]["inputs"]["filename_prefix"] == "smoke-out",
+            str(smoke_payload["9"]),
+        )
+        staged = workflow_mod.stage_image(str(uploaded_body["url_path"]))
+        staged_full = Path(get_settings().comfy_input_dir) / staged
+        check(
+            "stage_image copies an owned upload into the comfy input dir",
+            staged.startswith(f"{user_id}-") and staged_full.is_file(),
+            f"{staged} at {staged_full}",
         )
 
         admin_item = client.portal.call(seed_gallery_item, "admin@test", "admin-item")

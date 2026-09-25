@@ -95,11 +95,12 @@ echo "--- 4/12 templates ---"
 tpl="$(api_get "${admin_jar}" /api/templates)"
 tpl_n="$(pyj 'len(d["templates"])' <<<"${tpl}")"
 assert_eq "template list exposes all five templates" "${tpl_n}" "5"
-t2v="$(api_get "${admin_jar}" /api/templates/t2v/schema)"
-t2v_kind="$(pyj 'd["kind"]' <<<"${t2v}")"
-assert_eq "template schema is typed (kind)" "${t2v_kind}" "video"
-t2v_types="$(pyj 'sorted({p["type"] for p in d["params"]})' <<<"${t2v}")"
-assert_contains "schema params carry JSON-schema types" "${t2v_types}" "int"
+t2v="$(api_get "${admin_jar}" /api/templates/wan-t2v/schema)"
+t2v_workflow="$(pyj 'd["workflow"]' <<<"${t2v}")"
+assert_eq "template schema names its workflow graph" "${t2v_workflow}" "wan-t2v-a14b.json"
+t2v_types="$(pyj 'sorted({p["type"] for p in d["params"].values()})' <<<"${t2v}")"
+assert_contains "schema params carry JSON-schema types" "${t2v_types}" "enum"
+assert_contains "schema params carry typed strings" "${t2v_types}" "string"
 
 echo
 echo "--- 5/12 smoke job: enqueue, run, gallery copy ---"
@@ -158,7 +159,7 @@ assert_ne "cancelled/raced job never fails" "${stC}" "failed"
 
 echo
 echo "--- 8/12 validation + failure paths ---"
-api_request "${admin_jar}" POST /api/jobs "{\"template_id\":\"i2v\",\"params\":{}}"
+api_request "${admin_jar}" POST /api/jobs "{\"template_id\":\"wan-i2v\",\"params\":{}}"
 assert_eq "missing required image param rejects with 422" "${API_STATUS}" "422"
 assert_contains "422 explains the bad parameter" "${API_BODY}" 'image'
 jbad="$(create_smoke "${admin_jar}" "$(date +%s)-nominal")"

@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Media system template parameters (authoritative). 'templates' is the live template DB keyed by template id; the outer structure self-validates entry shape.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["templates"],
+  "properties": {
+    "templates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["workflow", "params"],
+        "properties": {
+          "display": { "type": "string" },
+          "workflow": { "type": "string", "pattern": "^[a-z0-9-]+\\.json$" },
+          "params": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["type", "label"],
+              "properties": {
+                "type": { "type": "string", "enum": ["string", "int", "float", "bool", "image", "enum"] },
+                "label": { "type": "string" },
+                "required": { "type": "boolean" },
+                "default": {},
+                "min": {},
+                "max": {},
+                "step": {},
+                "values": { "type": "array" },
+                "resolutions": { "type": "object" },
+                "bind": { "type": "string", "pattern": "^[0-9]+\\.[a-z_]+$" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "templates": {
+    "qwen-t2i": {
+      "display": "Qwen 2.1 Text-to-Image",
+      "workflow": "qwen-t2i.json",
+      "params": {
+        "prompt": { "type": "string", "required": true, "label": "Prompt", "bind": "4.text" },
+        "negative_prompt": { "type": "string", "default": "", "label": "Negative prompt", "bind": "7.text" },
+        "seed": { "type": "int", "default": 999, "min": 0, "max": 2147483647, "label": "Seed", "bind": "6.seed" },
+        "steps": { "type": "int", "default": 20, "min": 1, "max": 60, "label": "Steps", "bind": "6.steps" },
+        "cfg": { "type": "float", "default": 4.0, "min": 1.0, "max": 20.0, "step": 0.5, "label": "CFG", "bind": "6.cfg" },
+        "megapixels": {
+          "type": "enum",
+          "values": [1.0, 2.0, 3.0, 4.0],
+          "resolutions": { "1.0": [896, 1152], "2.0": [1280, 1600], "3.0": [1344, 2048], "4.0": [1536, 2048] },
+          "default": 1.0,
+          "label": "Resolution (megapixels)",
+          "bind": "5.width"
+        }
+      }
+    },
+    "qwen-edit": {
+      "display": "Qwen 2.1 Image Edit",
+      "workflow": "qwen-edit.json",
+      "params": {
+        "image": { "type": "image", "required": true, "label": "Source image", "bind": "1.image" },
+        "prompt": { "type": "string", "required": true, "label": "Instruction", "bind": "7.text" },
+        "negative_prompt": { "type": "string", "default": "", "label": "Negative prompt", "bind": "8.text" },
+        "seed": { "type": "int", "default": 999, "min": 0, "max": 2147483647, "label": "Seed", "bind": "9.seed" },
+        "steps": { "type": "int", "default": 20, "min": 1, "max": 60, "label": "Steps", "bind": "9.steps" },
+        "cfg": { "type": "float", "default": 4.0, "min": 1.0, "max": 20.0, "step": 0.5, "label": "CFG", "bind": "9.cfg" }
+      }
+    },
+    "wan-t2v": {
+      "display": "Wan 2.2 Text-to-Video 14B",
+      "workflow": "wan-t2v-a14b.json",
+      "params": {
+        "prompt": { "type": "string", "required": true, "label": "Prompt", "bind": "5.text" },
+        "negative_prompt": { "type": "string", "default": "", "label": "Negative prompt", "bind": "6.text" },
+        "seed": { "type": "int", "default": 999, "min": 0, "max": 2147483647, "label": "Seed", "bind": "8.seed" },
+        "steps": { "type": "int", "default": 30, "min": 1, "max": 60, "label": "Steps", "bind": "8.steps" },
+        "cfg": { "type": "float", "default": 5.0, "min": 1.0, "max": 20.0, "step": 0.5, "label": "CFG", "bind": "8.cfg" },
+        "length": { "type": "int", "default": 81, "min": 9, "max": 121, "step": 4, "label": "Frames", "bind": "7.length" },
+        "resolution": {
+          "type": "enum",
+          "values": [[832, 480], [1280, 720]],
+          "default": [832, 480],
+          "label": "Resolution (WxH)",
+          "bind": "7.width"
+        }
+      }
+    },
+    "wan-i2v": {
+      "display": "Wan 2.2 Image-to-Video 14B",
+      "workflow": "wan-i2v-a14b.json",
+      "params": {
+        "image": { "type": "image", "required": true, "label": "Source image", "bind": "1.image" },
+        "prompt": { "type": "string", "required": true, "label": "Motion prompt", "bind": "6.text" },
+        "negative_prompt": { "type": "string", "default": "", "label": "Negative prompt", "bind": "7.text" },
+        "seed": { "type": "int", "default": 999, "min": 0, "max": 2147483647, "label": "Seed", "bind": "9.seed" },
+        "steps": { "type": "int", "default": 30, "min": 1, "max": 60, "label": "Steps", "bind": "9.steps" },
+        "cfg": { "type": "float", "default": 5.0, "min": 1.0, "max": 20.0, "step": 0.5, "label": "CFG", "bind": "9.cfg" },
+        "length": { "type": "int", "default": 81, "min": 9, "max": 121, "step": 4, "label": "Frames", "bind": "8.length" },
+        "resolution": {
+          "type": "enum",
+          "values": [[832, 480], [1280, 720]],
+          "default": [832, 480],
+          "label": "Resolution (WxH)",
+          "bind": "8.width"
+        }
+      }
+    },
+    "smoke": {
+      "display": "Smoke test (CPU, no weights)",
+      "workflow": "smoke.json",
+      "params": {
+        "seed": { "type": "string", "default": "smoke-out", "label": "Output prefix", "bind": "9.filename_prefix" }
+      }
+    }
+  }
+}

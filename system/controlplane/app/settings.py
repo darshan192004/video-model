@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
+from pathlib import Path
 from typing import ClassVar
 
 from pydantic import model_validator
@@ -45,6 +46,15 @@ class Settings(BaseSettings):
     # the shared `comfy-output` named volume; on a native dev box it points at
     # the mock/real backend's output directory.
     comfy_output_dir: str = "/data/comfy-output"
+    # Where the worker stages `{PARAM.image}` uploads for ComfyUI to LoadImage.
+    # In compose this is the shared `comfy-input` volume mounted at ComfyUI's
+    # input directory.
+    comfy_input_dir: str = "/data/comfy-input"
+    # Canonical phase-2 graphs (system/workflows/) and the keyed template schema
+    # (system/config/templates.schema.json). In compose these are read-only
+    # mounts; on a native checkout the repo-relative defaults are used.
+    workflows_dir: str = str(Path(__file__).resolve().parents[2] / "workflows")
+    template_schema_path: str = str(Path(__file__).resolve().parents[2] / "config" / "templates.schema.json")
     worker_poll_seconds: float = 2.0
     worker_job_timeout_seconds: float = 3600.0
     worker_log_level: str = "INFO"

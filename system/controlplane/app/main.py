@@ -69,7 +69,18 @@ def create_app() -> FastAPI:
         if assets.is_dir():
             app.mount("/_nuxt", StaticFiles(directory=assets), name="spa_assets")
 
-    @app.get("/{path:path}", include_in_schema=False)
+    # /api/auth/*, /api/healthz and the SPA stay unauthenticated; every other
+    # router carries its own require_user/require_admin dependency.
+    app.include_router(auth.router)
+    app.include_router(templates.router)
+    app.include_router(uploads.router)
+    app.include_router(jobs.router)
+    app.include_router(gallery.router)
+    app.include_router(admin.router)
+
+    # The catch-all MUST be registered last so /api/* routes always win over
+    # the SPA fallback under lazy router resolution.
+    @app.get("/{path:path}", include_in_schema=False, response_model=None)
     def spa_fallback(path: str) -> FileResponse | JSONResponse:
         # Anything under /api already uses the routers above; keep API 404s
         # as JSON instead of HTML fallbacks.
@@ -90,15 +101,6 @@ def create_app() -> FastAPI:
             if index.is_file():
                 return FileResponse(index)
         return JSONResponse({"detail": "SPA not built"}, status_code=404)
-
-    # /api/auth/*, /api/healthz and the SPA stay unauthenticated; every other
-    # router carries its own require_user/require_admin dependency.
-    app.include_router(auth.router)
-    app.include_router(templates.router)
-    app.include_router(uploads.router)
-    app.include_router(jobs.router)
-    app.include_router(gallery.router)
-    app.include_router(admin.router)
 
     return app
 

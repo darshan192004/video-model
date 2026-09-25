@@ -46,11 +46,17 @@ def _type_error(parameter: dict[str, Any], value: Any) -> str | None:
         return None
     if parameter_type in {"image", "string"}:
         return None if isinstance(value, str) and value else f"must be a non-empty {parameter_type}"
+    if parameter_type == "enum":
+        return None
     return f"has unsupported type {parameter_type!r}"
 
 
+def _enum_member(values: list[Any], value: Any) -> bool:
+    return any(value == candidate for candidate in values)
+
+
 def validate_params(template: dict[str, Any], supplied: dict[str, Any]) -> dict[str, Any]:
-    parameters = {item["name"]: item for item in template.get("params", [])}
+    parameters: dict[str, Any] = template.get("params", {})
     errors: list[dict[str, str]] = []
     unknown = sorted(set(supplied) - set(parameters))
     for name in unknown:
@@ -62,15 +68,26 @@ def validate_params(template: dict[str, Any], supplied: dict[str, Any]) -> dict[
             value = supplied[name]
         elif "default" in parameter:
             value = parameter["default"]
-        else:
+        elif parameter.get("required"):
             errors.append({"param": name, "message": "is required"})
             continue
-        if value is None and parameter.get("default", object()) is None:
+        else:
+            continue
+        if value is None and parameter.get("default") is None:
             validated[name] = None
+            continue
+        if value is None:
+            errors.append({"param": name, "message": "must not be null"})
             continue
         type_error = _type_error(parameter, value)
         if type_error:
             errors.append({"param": name, "message": type_error})
+            continue
+        if parameter["type"] == "enum":
+            if not _enum_member(parameter.get("values") or [], value):
+                errors.append({"param": name, "message": "must be one of the allowed values"})
+                continue
+            validated[name] = value
             continue
         if parameter["type"] in {"int", "float"}:
             if isinstance(value, float) and not math.isfinite(value):
@@ -113,13 +130,13 @@ def validate_image_references(
     params: dict[str, Any],
 ) -> None:
     errors: list[dict[str, str]] = []
-    for parameter in template.get("params", []):
-        if parameter.get("type") != "image" or params.get(parameter["name"]) is None:
+    for name, parameter in template.get("params", {}).items():
+        if parameter.get("type") != "image" or params.get(name) is None:
             continue
         try:
-            resolve_upload(user.id, params[parameter["name"]])
+            resolve_upload(user.id, params[name])
         except ValueError as exc:
-            errors.append({"param": parameter["name"], "message": str(exc)})
+            errors.append({"param": name, "message": str(exc)})
     if errors:
         raise HTTPException(
             422,

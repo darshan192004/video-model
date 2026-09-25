@@ -20,9 +20,13 @@ RUN python3 -m pip install --no-cache-dir -r /opt/requirements.txt
 WORKDIR /opt/media
 COPY --from=spa-build /app/spa/dist /opt/media/spa
 COPY controlplane/app/ /opt/media/app/
-COPY controlplane/config/ /opt/media/config/
+# Phase 2 canonical graphs + keyed template schema (read-only mounts override
+# these when compose runs; the baked copies keep the bare image self-sufficient).
+COPY workflows/ /opt/media/workflows/
+COPY config/ /opt/media/config/
 RUN chown -R 1000:100 /opt/media
 USER 1000:100
 EXPOSE 8000
-ENV CONTROLPLANE_LISTEN=0.0.0.0 CONTROLPLANE_PORT=8000 SPA_STATIC=/opt/media/spa
+ENV CONTROLPLANE_LISTEN=0.0.0.0 CONTROLPLANE_PORT=8000 SPA_STATIC=/opt/media/spa \
+    WORKFLOWS_DIR=/opt/media/workflows TEMPLATE_SCHEMA=/opt/media/config/templates.schema.json
 CMD ["sh", "-c", "cd /opt/media && uvicorn app.main:app --host ${CONTROLPLANE_LISTEN} --port ${CONTROLPLANE_PORT}"]
